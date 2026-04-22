@@ -9,11 +9,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
-import { FiAlertTriangle, FiCheckCircle, FiChevronRight, FiChevronLeft, FiInfo, FiX } from "react-icons/fi";
+import { FiAlertTriangle, FiCheckCircle, FiChevronRight, FiChevronLeft, FiInfo, FiX, FiZap } from "react-icons/fi";
+import { Loader2 } from "lucide-react";
 
 interface Project {
   id: string;
   name: string;
+  description?: string | null;
 }
 
 interface Props {
@@ -68,21 +70,56 @@ export function DpiaCreateModal({ open, onClose, projects, defaultCompany }: Pro
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  // Step 1: Basic info
+  // Step 1
   const [projectId, setProjectId] = useState(projects[0]?.id ?? "");
   const [title, setTitle] = useState("");
   const [processingPurpose, setProcessingPurpose] = useState("");
+  const [dataObjects, setDataObjects] = useState<string[]>([]);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
 
-  // Step 2: Risk assessment
+  // Step 2
   const [risks, setRisks] = useState<string[]>([]);
   const [customRisk, setCustomRisk] = useState("");
   const [mitigations, setMitigations] = useState<string[]>([]);
   const [customMitigation, setCustomMitigation] = useState("");
 
-  // Step 3: DPO
+  // Step 3
   const [necessityAssessed, setNecessityAssessed] = useState(false);
   const [dpoConsulted, setDpoConsulted] = useState(false);
   const [dpoName, setDpoName] = useState("");
+
+  const selectedProject = projects.find((p) => p.id === projectId);
+
+  async function generateWithAI() {
+    if (!selectedProject) return;
+    setAiLoading(true);
+    setAiError(null);
+    try {
+      const res = await fetch("/api/ai/dpia-generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectName: selectedProject.name,
+          projectDescription: selectedProject.description ?? "",
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setAiError(data.error ?? "Σφάλμα AI"); return; }
+      if (data.processingPurpose) setProcessingPurpose(data.processingPurpose);
+      if (data.dataObjects?.length) setDataObjects(data.dataObjects);
+      if (data.suggestedRisks?.length) {
+        setRisks((prev) => {
+          const combined = [...new Set([...prev, ...data.suggestedRisks])];
+          return combined;
+        });
+      }
+    } catch (e: any) {
+      setAiError(e.message);
+    } finally {
+      setAiLoading(false);
+    }
+  }
 
   const toggleRisk = (r: string) =>
     setRisks((prev) => prev.includes(r) ? prev.filter((x) => x !== r) : [...prev, r]);
@@ -139,11 +176,11 @@ export function DpiaCreateModal({ open, onClose, projects, defaultCompany }: Pro
             <FiX className="h-4 w-4" />
           </button>
           <p className="font-semibold text-sm text-blue-800 dark:text-blue-300 mb-1">
-            ℹ️ {STEP_HELP[step].title}
+            {STEP_HELP[step].title}
           </p>
           <p className="text-sm text-blue-700 dark:text-blue-400 mb-2">{STEP_HELP[step].text}</p>
           <p className="text-xs text-blue-600 dark:text-blue-500 bg-blue-100 dark:bg-blue-900/30 rounded px-2 py-1">
-            📖 {STEP_HELP[step].article}
+            {STEP_HELP[step].article}
           </p>
         </div>
       )}
@@ -168,7 +205,6 @@ export function DpiaCreateModal({ open, onClose, projects, defaultCompany }: Pro
             type="button"
             onClick={() => setShowHelp((v) => !v)}
             className="ml-auto flex items-center gap-1 text-xs text-primary hover:underline"
-            title="Οδηγίες βήματος"
           >
             <FiInfo className="h-3.5 w-3.5" /> Βοήθεια
           </button>
@@ -181,7 +217,7 @@ export function DpiaCreateModal({ open, onClose, projects, defaultCompany }: Pro
         <div className="space-y-4">
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Project / Εφαρμογή *</label>
-            <Select value={projectId} onChange={(e) => setProjectId(e.target.value)}>
+            <Select value={projectId} onChange={(e) => { setProjectId(e.target.value); setDataObjects([]); }}>
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
@@ -196,14 +232,58 @@ export function DpiaCreateModal({ open, onClose, projects, defaultCompany }: Pro
             />
           </div>
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">Σκοπός & Περιγραφή Επεξεργασίας *</label>
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-medium">Σκοπός & Περιγραφή Επεξεργασίας *</label>
+              <button
+                type="button"
+                onClick={generateWithAI}
+                disabled={aiLoading || !projectId}
+                className="flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium disabled:opacity-40 transition-colors"
+                style={{ background: "rgba(0,120,212,0.1)", color: "#0078d4", border: "1px solid rgba(0,120,212,0.25)" }}
+              >
+                {aiLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <FiZap className="h-3 w-3" />}
+                {aiLoading ? "Δημιουργία..." : "Δημιουργία με AI"}
+              </button>
+            </div>
             <Textarea
               value={processingPurpose}
               onChange={(e) => setProcessingPurpose(e.target.value)}
-              rows={4}
-              placeholder="Περιγράψτε αναλυτικά τον σκοπό επεξεργασίας, τα δεδομένα, τα υποκείμενα και τους λόγους αναγκαιότητας..."
+              rows={5}
+              placeholder="Περιγράψτε αναλυτικά τον σκοπό επεξεργασίας, τα δεδομένα, τα υποκείμενα και τους λόγους αναγκαιότητας... ή χρησιμοποιήστε το κουμπί AI."
             />
           </div>
+
+          {aiError && (
+            <p className="text-xs text-destructive">{aiError}</p>
+          )}
+
+          {dataObjects.length > 0 && (
+            <div
+              className="rounded-lg p-3 space-y-1.5"
+              style={{ background: "rgba(0,120,212,0.06)", border: "1px solid rgba(0,120,212,0.18)" }}
+            >
+              <p className="text-xs font-semibold" style={{ color: "#0078d4" }}>
+                Αντικείμενα Δεδομένων (από AI)
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {dataObjects.map((obj, i) => (
+                  <span
+                    key={i}
+                    className="rounded-full px-2.5 py-0.5 text-xs"
+                    style={{ background: "rgba(0,120,212,0.12)", color: "#0078d4", border: "1px solid rgba(0,120,212,0.2)" }}
+                  >
+                    {obj}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {risks.length > 0 && dataObjects.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              ✓ Το AI προ-επέλεξε {risks.length} κινδύνους στο Βήμα 2.
+            </p>
+          )}
         </div>
       )}
 
@@ -216,15 +296,16 @@ export function DpiaCreateModal({ open, onClose, projects, defaultCompany }: Pro
               Κίνδυνοι — επιλέξτε ή προσθέστε
             </label>
             <div className="grid grid-cols-2 gap-2">
-              {RISK_PRESETS.map((r) => (
+              {/* Show both presets and AI-suggested risks */}
+              {[...new Set([...RISK_PRESETS, ...risks.filter((r) => !RISK_PRESETS.includes(r))])].map((r) => (
                 <button
                   key={r}
                   type="button"
                   onClick={() => toggleRisk(r)}
-                  className={`text-left text-xs rounded-lg border px-3 py-2 transition-all ${
+                  className={`text-left text-xs rounded-lg border px-3 py-2 transition-all font-medium ${
                     risks.includes(r)
-                      ? "border-orange-400 bg-orange-50 dark:bg-orange-950/20 text-orange-800 dark:text-orange-300"
-                      : "border-border hover:border-orange-300"
+                      ? "border-orange-600 bg-orange-600 text-white"
+                      : "border-border hover:border-orange-400 text-foreground"
                   }`}
                 >
                   {r}
@@ -262,7 +343,7 @@ export function DpiaCreateModal({ open, onClose, projects, defaultCompany }: Pro
 
           <div className="space-y-2">
             <label className="text-sm font-medium flex items-center gap-1.5">
-              <FiCheckCircle className="h-3.5 w-3.5 text-green-500" />
+              <FiCheckCircle className="h-3.5 w-3.5 text-green-600" />
               Μέτρα Μείωσης Κινδύνου
             </label>
             <div className="grid grid-cols-2 gap-2">
@@ -271,10 +352,10 @@ export function DpiaCreateModal({ open, onClose, projects, defaultCompany }: Pro
                   key={m}
                   type="button"
                   onClick={() => toggleMitigation(m)}
-                  className={`text-left text-xs rounded-lg border px-3 py-2 transition-all ${
+                  className={`text-left text-xs rounded-lg border px-3 py-2 transition-all font-medium ${
                     mitigations.includes(m)
-                      ? "border-green-400 bg-green-50 dark:bg-green-950/20 text-green-800 dark:text-green-300"
-                      : "border-border hover:border-green-300"
+                      ? "border-green-600 bg-green-600 text-white"
+                      : "border-border hover:border-green-500 text-foreground"
                   }`}
                 >
                   {m}
@@ -311,10 +392,15 @@ export function DpiaCreateModal({ open, onClose, projects, defaultCompany }: Pro
           </div>
 
           {risks.length > 0 && (
-            <div className="rounded-lg bg-orange-50 dark:bg-orange-950/20 p-3 text-xs text-orange-800 dark:text-orange-300">
-              <p className="font-semibold mb-1">{risks.length} κίνδυνοι — {mitigations.length} μέτρα</p>
+            <div
+              className="rounded-lg p-3 text-xs"
+              style={{ background: "rgba(202,80,16,0.08)", border: "1px solid rgba(202,80,16,0.2)" }}
+            >
+              <p className="font-semibold mb-1" style={{ color: "#ca5010" }}>
+                {risks.length} κίνδυνοι — {mitigations.length} μέτρα
+              </p>
               {risks.length > mitigations.length && (
-                <p>⚠ Βεβαιωθείτε ότι κάθε κίνδυνος έχει αντίστοιχο μέτρο αντιμετώπισης</p>
+                <p style={{ color: "#ca5010" }}>Βεβαιωθείτε ότι κάθε κίνδυνος έχει αντίστοιχο μέτρο αντιμετώπισης</p>
               )}
             </div>
           )}

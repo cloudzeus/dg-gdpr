@@ -9,6 +9,7 @@ import { FiPlus, FiDownload } from "react-icons/fi";
 interface Project {
   id: string;
   name: string;
+  description?: string | null;
 }
 
 interface DpaContractRow {

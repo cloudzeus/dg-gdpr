@@ -6,7 +6,7 @@ import { OrgVatFields } from "@/components/modules/org-vat-fields";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Building2, Save } from "lucide-react";
+import { Building2, Save, FileDown } from "lucide-react";
 
 async function handleUpdate(formData: FormData) {
   "use server";
@@ -26,6 +26,25 @@ export default async function CompanyPage() {
       <Topbar userName={session?.user?.name} userRole={(session?.user as any)?.role} pageTitle="Στοιχεία Εταιρείας" />
       <main className="flex-1 overflow-y-auto p-6">
         <div className="max-w-3xl mx-auto space-y-6">
+
+          {/* Compliance package export */}
+          <div
+            className="flex items-center justify-between rounded-sm px-4 py-3"
+            style={{ background: "rgba(0,120,212,0.05)", border: "1px solid rgba(0,120,212,0.18)" }}
+          >
+            <div>
+              <p className="text-sm font-semibold" style={{ color: "#0078d4" }}>Πακέτο Συμμόρφωσης GDPR</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Εξαγωγή Word με όλες τις ενεργές πολιτικές — για τρίτους Υπεύθυνους / Εκτελούντες Επεξεργασίας
+              </p>
+            </div>
+            <a href="/api/export/compliance-package" download>
+              <Button type="button" size="sm" className="gap-1.5 shrink-0">
+                <FileDown className="h-4 w-4" /> Εξαγωγή Word
+              </Button>
+            </a>
+          </div>
+
           <form action={handleUpdate}>
             <Card>
               <CardHeader>

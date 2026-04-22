@@ -36,10 +36,10 @@ export default async function DpiaPage() {
       orderBy: { createdAt: "desc" },
       include: { project: { select: { name: true } } },
     }),
-    prisma.project.findMany({ select: { id: true, name: true }, where: { status: "ACTIVE" } }),
+    prisma.project.findMany({ select: { id: true, name: true, description: true }, where: { status: "ACTIVE" } }),
   ]);
 
-  const projectsData = projects.map((p) => ({ id: p.id, name: p.name }));
+  const projectsData = projects.map((p) => ({ id: p.id, name: p.name, description: p.description }));
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
