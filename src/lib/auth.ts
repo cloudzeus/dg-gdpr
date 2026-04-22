@@ -60,15 +60,15 @@ const providers: any[] = [
      AZURE_AD_TENANT_ID      — your tenant ID (or "common" for multi-tenant)
 */
 if (
-  process.env.AZURE_AD_CLIENT_ID &&
-  process.env.AZURE_AD_CLIENT_SECRET &&
-  process.env.AZURE_AD_TENANT_ID
+  process.env.AUTH_MICROSOFT_ENTRA_ID_ID &&
+  process.env.AUTH_MICROSOFT_ENTRA_ID_SECRET &&
+  process.env.AUTH_MICROSOFT_ENTRA_ID_TENANT_ID
 ) {
   providers.push(
     MicrosoftEntraId({
-      clientId: process.env.AZURE_AD_CLIENT_ID!,
-      clientSecret: process.env.AZURE_AD_CLIENT_SECRET!,
-      issuer: `https://login.microsoftonline.com/${process.env.AZURE_AD_TENANT_ID}/v2.0`,
+      clientId: process.env.AUTH_MICROSOFT_ENTRA_ID_ID!,
+      clientSecret: process.env.AUTH_MICROSOFT_ENTRA_ID_SECRET!,
+      issuer: `https://login.microsoftonline.com/${process.env.AUTH_MICROSOFT_ENTRA_ID_TENANT_ID}/v2.0`,
     })
   );
 }

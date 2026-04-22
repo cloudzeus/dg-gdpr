@@ -40,9 +40,9 @@ export default async function LoginPage({
   }
 
   const hasMicrosoft = !!(
-    process.env.AZURE_AD_CLIENT_ID &&
-    process.env.AZURE_AD_CLIENT_SECRET &&
-    process.env.AZURE_AD_TENANT_ID
+    process.env.AUTH_MICROSOFT_ENTRA_ID_ID &&
+    process.env.AUTH_MICROSOFT_ENTRA_ID_SECRET &&
+    process.env.AUTH_MICROSOFT_ENTRA_ID_TENANT_ID
   );
 
   return (
