@@ -4,8 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { logAction } from "@/lib/action-logger";
 import { revalidatePath } from "next/cache";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
+import { uploadToBunny } from "@/lib/bunny";
 
 export async function updateProfile(formData: FormData) {
   const session = await auth();
@@ -43,11 +42,7 @@ export async function uploadAvatar(formData: FormData): Promise<{ image: string 
   const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
   const filename = `${session.user.id}.${ext}`;
 
-  const uploadDir = path.join(process.cwd(), "public", "avatars");
-  await mkdir(uploadDir, { recursive: true });
-  await writeFile(path.join(uploadDir, filename), buffer);
-
-  const imageUrl = `/avatars/${filename}`;
+  const imageUrl = await uploadToBunny(buffer, `avatars/${filename}`, file.type);
 
   await prisma.user.update({
     where: { id: session.user.id },

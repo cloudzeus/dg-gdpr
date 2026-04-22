@@ -1,6 +1,7 @@
 import { Topbar } from "@/components/layout/topbar";
 import { auth } from "@/lib/auth";
 import { getOrganization, updateOrganization } from "@/actions/organization";
+import { LogoUploader } from "@/components/modules/logo-uploader";
 
 async function handleUpdate(formData: FormData) {
   "use server";
@@ -51,9 +52,10 @@ export default async function CompanyPage() {
                     <Input name="registryNo" defaultValue={org?.registryNo ?? ""} />
                   </Field>
                 </div>
-                <Field label="Logo (URL ή Data URI)">
-                  <Input name="logo" defaultValue={org?.logo ?? ""} placeholder="https://... ή data:image/..." />
-                </Field>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground">Logo Εταιρείας</label>
+                  <LogoUploader currentLogo={org?.logo ?? null} />
+                </div>
                 <Field label="Περιγραφή / Δραστηριότητα">
                   <textarea
                     name="description"
