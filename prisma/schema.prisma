@@ -1,0 +1,761 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Auth.js v5 Required Models ───────────────────────────────────────────────
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ─── User ─────────────────────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  password      String?
+  role          UserRole  @default(USER)
+  departmentId  String?
+  positionId    String?
+  phone         String?
+  address       String?
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  department        Department?      @relation("DepartmentMembers", fields: [departmentId], references: [id])
+  position          Position?        @relation(fields: [positionId], references: [id])
+  departmentsManaged Department[]    @relation("DepartmentManager")
+  policyDocuments   PolicyDocument[]
+
+  accounts          Account[]
+  sessions          Session[]
+  auditLogs         AuditLog[]
+  devChecklists     DevChecklist[]
+  voipConfigs       VoIPConfig[]
+  dbAccessLogs      DbAccessLog[]
+  trainingResults   TrainingResult[]
+  dpaContracts      DpaContract[]
+  dpiaReports       DpiaReport[]
+}
+
+enum UserRole {
+  ADMIN
+  DPO
+  SECURITY_OFFICER
+  COMPLIANCE_OFFICER
+  IT_MANAGER
+  HR_MANAGER
+  DEVELOPER
+  USER
+}
+
+// ─── Organization (singleton) ─────────────────────────────────────────────────
+
+model Organization {
+  id           String   @id @default(cuid())
+  name         String
+  legalName    String?
+  vatNumber    String?
+  taxOffice    String?
+  registryNo   String?
+  logo         String?  @db.LongText
+  addressLine1 String?
+  addressLine2 String?
+  city         String?
+  postalCode   String?
+  country      String?  @default("Ελλάδα")
+  phones       Json?
+  emails       Json?
+  domains      Json?
+  website      String?
+  description  String?  @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// ─── Departments (hierarchical) ───────────────────────────────────────────────
+
+model Department {
+  id          String       @id @default(cuid())
+  name        String
+  code        String?      @unique
+  description String?      @db.Text
+  parentId    String?
+  managerId   String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  parent    Department?  @relation("DepartmentHierarchy", fields: [parentId], references: [id])
+  children  Department[] @relation("DepartmentHierarchy")
+  manager   User?        @relation("DepartmentManager", fields: [managerId], references: [id])
+  members   User[]       @relation("DepartmentMembers")
+
+  @@index([parentId])
+}
+
+// ─── Positions (job titles library) ───────────────────────────────────────────
+
+model Position {
+  id          String   @id @default(cuid())
+  title       String
+  code        String?  @unique
+  description String?  @db.Text
+  isKeyRole   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users User[]
+}
+
+// ─── Policy Documents ─────────────────────────────────────────────────────────
+
+model PolicyDocument {
+  id            String       @id @default(cuid())
+  title         String
+  type          PolicyType
+  version       String       @default("1.0")
+  content       String?      @db.LongText
+  fileUrl       String?
+  effectiveDate DateTime?
+  reviewDate    DateTime?
+  ownerId       String?
+  status        PolicyStatus @default(DRAFT)
+  tags          Json?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  owner    User?           @relation(fields: [ownerId], references: [id])
+  versions PolicyVersion[]
+
+  @@index([type])
+  @@index([status])
+}
+
+model PolicyVersion {
+  id         String   @id @default(cuid())
+  policyId   String
+  version    String
+  content    String?  @db.LongText
+  changedBy  String?
+  changeNote String?  @db.Text
+  createdAt  DateTime @default(now())
+
+  policy PolicyDocument @relation(fields: [policyId], references: [id], onDelete: Cascade)
+
+  @@index([policyId])
+}
+
+enum PolicyType {
+  SECURITY_POLICY
+  ACCEPTABLE_USE
+  DATA_RETENTION
+  INCIDENT_RESPONSE
+  BYOD
+  PASSWORD_POLICY
+  BACKUP
+  ACCESS_CONTROL
+  PRIVACY_NOTICE
+  COOKIE_POLICY
+  DATA_BREACH
+  EMPLOYEE_HANDBOOK
+  ETHICS_CODE
+  CLEAR_DESK
+  REMOTE_WORK
+  VENDOR_MANAGEMENT
+  CHANGE_MANAGEMENT
+  BUSINESS_CONTINUITY
+  OTHER
+}
+
+enum PolicyStatus {
+  DRAFT
+  UNDER_REVIEW
+  ACTIVE
+  ARCHIVED
+}
+
+// ─── Companies (3rd parties — clients / suppliers / partners) ─────────────────
+
+model Company {
+  id            String        @id @default(cuid())
+  name          String
+  legalName     String?
+  vatNumber     String?       @unique
+  taxOffice     String?
+  registryNo    String?
+  email         String?
+  phone         String?
+  website       String?
+  addressLine1  String?
+  addressLine2  String?
+  city          String?
+  postalCode    String?
+  country       String?
+  relationships Json?
+  contactName   String?
+  contactEmail  String?
+  contactPhone  String?
+  notes         String?       @db.Text
+  isActive      Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  dpaContracts DpaContract[]
+
+  @@index([name])
+}
+
+enum CompanyRelationship {
+  CLIENT
+  SUPPLIER
+  PARTNER
+  SUBSIDIARY
+  OTHER
+}
+
+enum DpaRole {
+  COMPANY_AS_PROCESSOR
+  COMPANY_AS_CONTROLLER
+  JOINT_CONTROLLERS
+}
+
+// ─── Projects (Custom Dev) ────────────────────────────────────────────────────
+
+model Project {
+  id          String        @id @default(cuid())
+  name        String
+  clientName  String
+  description String?       @db.Text
+  status      ProjectStatus @default(ACTIVE)
+  riskLevel   RiskLevel     @default(MEDIUM)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  devChecklists DevChecklist[]
+  dbAccessLogs  DbAccessLog[]
+  dpaContracts  DpaContract[]
+  dpiaReports   DpiaReport[]
+  auditLogs     AuditLog[]
+  assessments   Assessment[]
+}
+
+enum ProjectStatus {
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+// ─── Audit Log (every DB mutation) ───────────────────────────────────────────
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String
+  action     String
+  entity     String
+  entityId   String?
+  projectId  String?
+  details    Json?
+  ipAddress  String?
+  userAgent  String?  @db.Text
+  createdAt  DateTime @default(now())
+
+  user    User     @relation(fields: [userId], references: [id])
+  project Project? @relation(fields: [projectId], references: [id])
+
+  @@index([userId])
+  @@index([entity])
+  @@index([createdAt])
+}
+
+// ─── Privacy by Design Checklist (Dev Module) ────────────────────────────────
+
+model DevChecklist {
+  id                     String   @id @default(cuid())
+  projectId              String
+  userId                 String
+  dataMinimization       Boolean  @default(false)
+  encryptionAtRest       Boolean  @default(false)
+  encryptionInTransit    Boolean  @default(false)
+  accessControls         Boolean  @default(false)
+  inputValidation        Boolean  @default(false)
+  sqlInjectionPrevention Boolean  @default(false)
+  xssPrevention          Boolean  @default(false)
+  securityHeaders        Boolean  @default(false)
+  apiAuthentication      Boolean  @default(false)
+  tokenManagement        Boolean  @default(false)
+  loggingAuditTrail      Boolean  @default(false)
+  privacyImpactAssessed  Boolean  @default(false)
+  retentionPolicyDefined Boolean  @default(false)
+  dpoApproved            Boolean  @default(false)
+  notes                  String?  @db.Text
+  score                  Int      @default(0)
+  completedAt            DateTime?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+}
+
+// ─── Database Access Log (Dev Module) ────────────────────────────────────────
+
+model DbAccessLog {
+  id           String      @id @default(cuid())
+  userId       String
+  projectId    String
+  developerName String
+  clientDb     String
+  dbType       DbType
+  accessReason String      @db.Text
+  accessType   AccessType
+  duration     Int?
+  dataViewed   String?     @db.Text
+  legalBasis   String?
+  approvedBy   String?
+  createdAt    DateTime    @default(now())
+
+  user    User    @relation(fields: [userId], references: [id])
+  project Project @relation(fields: [projectId], references: [id])
+
+  @@index([userId])
+  @@index([projectId])
+}
+
+enum DbType {
+  SOFTONE
+  MYSQL
+  MSSQL
+  POSTGRESQL
+  ORACLE
+  OTHER
+}
+
+enum AccessType {
+  READ
+  WRITE
+  DELETE
+  SCHEMA_CHANGE
+  BACKUP
+  RESTORE
+}
+
+// ─── Assessment ───────────────────────────────────────────────────────────────
+
+model Assessment {
+  id          String           @id @default(cuid())
+  projectId   String
+  type        AssessmentType
+  title       String
+  answers     Json
+  situations  Json?
+  score       Float            @default(0)
+  maxScore    Float            @default(100)
+  status      AssessmentStatus @default(DRAFT)
+  completedAt DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id])
+}
+
+enum AssessmentType {
+  PRIVACY_BY_DESIGN
+  DPIA
+  VOIP_LEGAL_BASIS
+  DATA_RETENTION
+  SECURITY_AUDIT
+}
+
+enum AssessmentStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  REJECTED
+}
+
+// ─── VoIP Config & Call Recording ────────────────────────────────────────────
+
+model VoIPConfig {
+  id                  String          @id @default(cuid())
+  userId              String
+  providerName        String
+  sipServer           String?
+  recordingEnabled    Boolean         @default(false)
+  legalBasis          RecordingBasis?
+  consentMechanism    String?         @db.Text
+  retentionDays       Int             @default(90)
+  encryptionEnabled   Boolean         @default(false)
+  dpaSignedAt         DateTime?
+  dpaProviderName     String?
+  dpaDocumentUrl      String?
+  metadataRetainDays  Int             @default(365)
+  notifyCallers       Boolean         @default(true)
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id])
+  callLogs     CallLog[]
+  providerDpas ProviderDpa[]
+}
+
+enum RecordingBasis {
+  CONSENT
+  CONTRACTUAL_NECESSITY
+  LEGITIMATE_INTEREST
+  LEGAL_OBLIGATION
+}
+
+model CallLog {
+  id           String     @id @default(cuid())
+  voipConfigId String
+  callerId     String?
+  calledNumber String?
+  direction    CallDirection
+  duration     Int
+  recordingUrl String?
+  recorded     Boolean    @default(false)
+  consentGiven Boolean?
+  retainUntil  DateTime
+  createdAt    DateTime   @default(now())
+
+  voipConfig VoIPConfig @relation(fields: [voipConfigId], references: [id])
+}
+
+enum CallDirection {
+  INBOUND
+  OUTBOUND
+}
+
+model ProviderDpa {
+  id           String      @id @default(cuid())
+  voipConfigId String
+  providerName String
+  signedAt     DateTime?
+  expiresAt    DateTime?
+  documentUrl  String?
+  status       DpaStatus   @default(PENDING)
+  notes        String?     @db.Text
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  voipConfig VoIPConfig @relation(fields: [voipConfigId], references: [id])
+}
+
+enum DpaStatus {
+  PENDING
+  SIGNED
+  EXPIRED
+  TERMINATED
+}
+
+// ─── DPA Contracts ────────────────────────────────────────────────────────────
+
+model DpaContract {
+  id             String      @id @default(cuid())
+  projectId      String
+  userId         String
+  companyId      String?
+  roleInDpa      DpaRole?
+  title          String
+  processorName  String
+  controllerName String
+  dataCategories Json
+  purposes       Json
+  retentionPeriod String
+  safeguards     String?     @db.Text
+  subProcessors  Json?
+  signedAt       DateTime?
+  expiresAt      DateTime?
+  status         DpaStatus   @default(PENDING)
+  pdfUrl         String?
+  gdprArticles   String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  project Project  @relation(fields: [projectId], references: [id])
+  user    User     @relation(fields: [userId], references: [id])
+  company Company? @relation(fields: [companyId], references: [id])
+
+  @@index([companyId])
+}
+
+// ─── DPIA Reports ─────────────────────────────────────────────────────────────
+
+model DpiaReport {
+  id                String      @id @default(cuid())
+  projectId         String
+  userId            String
+  title             String
+  processingPurpose String      @db.Text
+  necessityAssessed Boolean     @default(false)
+  risksIdentified   Json?
+  riskMitigation    Json?
+  dpoConsulted      Boolean     @default(false)
+  dpoName           String?
+  supervisoryBody   String?
+  status            DpiaStatus  @default(DRAFT)
+  pdfUrl            String?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+}
+
+enum DpiaStatus {
+  DRAFT
+  IN_REVIEW
+  APPROVED
+  REQUIRES_CONSULTATION
+}
+
+// ─── API Keys (for public GDPR rights API) ───────────────────────────────────
+
+model ApiKey {
+  id             String   @id @default(cuid())
+  name           String
+  description    String?
+  key            String   @unique
+  isActive       Boolean  @default(true)
+  allowedOrigins Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  requests DataSubjectRequest[]
+}
+
+// ─── Data Subject Requests (public API — all GDPR rights) ─────────────────────
+
+model DataSubjectRequest {
+  id           String    @id @default(cuid())
+  apiKeyId     String?
+  type         DsrType
+  status       DsrStatus @default(PENDING)
+  subjectName  String
+  subjectEmail String
+  subjectPhone String?
+  description  String?   @db.Text
+  systems      Json?
+  responseText String?   @db.Text
+  assignedTo   String?
+  completedAt  DateTime?
+  notifiedAt   DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  apiKey ApiKey? @relation(fields: [apiKeyId], references: [id])
+
+  @@index([type])
+  @@index([status])
+  @@index([subjectEmail])
+  @@index([createdAt])
+}
+
+enum DsrType {
+  ERASURE
+  PORTABILITY
+  ACCESS
+  RECTIFICATION
+  OBJECTION
+  RESTRICTION
+  WITHDRAW_CONSENT
+}
+
+enum DsrStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  REJECTED
+  PARTIAL
+}
+
+// ─── Right to Erasure (Δικαίωμα Λήθης) ───────────────────────────────────────
+
+model ErasureRequest {
+  id              String         @id @default(cuid())
+  subjectName     String
+  subjectEmail    String
+  subjectPhone    String?
+  requestDate     DateTime       @default(now())
+  description     String         @db.Text
+  systems         Json
+  status          ErasureStatus  @default(PENDING)
+  assignedTo      String?
+  completedAt     DateTime?
+  verifiedAt      DateTime?
+  notes           String?        @db.Text
+  proofDocUrl     String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([status])
+  @@index([requestDate])
+}
+
+enum ErasureStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  REJECTED
+  PARTIAL
+}
+
+// ─── Data Entity Mapper (DnD) ─────────────────────────────────────────────────
+
+model DataMap {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  entities    Json
+  flows       Json
+  zones       Json
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// ─── Department Data Flows (RoPA per department) ──────────────────────────────
+
+model DepartmentFlow {
+  id         String   @id @default(cuid())
+  department String   @unique
+  icon       String?
+  entries    Json
+  updatedAt  DateTime @updatedAt
+  createdAt  DateTime @default(now())
+}
+
+// ─── Training & Compliance Academy ───────────────────────────────────────────
+
+model TrainingModule {
+  id           String    @id @default(cuid())
+  title        String
+  description  String?   @db.Text
+  passingScore Int       @default(70)
+  durationMin  Int       @default(30)
+  targetRole   UserRole?
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  sections  TrainingSection[]
+  questions TrainingQuestion[]
+  results   TrainingResult[]
+}
+
+model TrainingSection {
+  id        String   @id @default(cuid())
+  moduleId  String
+  title     String
+  body      String?  @db.LongText
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  module    TrainingModule     @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  materials TrainingMaterial[]
+
+  @@index([moduleId])
+}
+
+model TrainingMaterial {
+  id        String       @id @default(cuid())
+  sectionId String
+  type      MaterialType
+  title     String
+  url       String?      @db.Text
+  content   String?      @db.LongText
+  mimeType  String?
+  sizeBytes Int?
+  order     Int          @default(0)
+  createdAt DateTime     @default(now())
+
+  section TrainingSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+
+  @@index([sectionId])
+}
+
+enum MaterialType {
+  PDF
+  VIDEO
+  AUDIO
+  IMAGE
+  LINK
+  DOCUMENT
+  SLIDE_DECK
+  ARTICLE
+}
+
+model TrainingQuestion {
+  id            String @id @default(cuid())
+  moduleId      String
+  question      String @db.Text
+  options       Json
+  correctAnswer Int
+  explanation   String? @db.Text
+  weight        Int    @default(1)
+  order         Int    @default(0)
+
+  module TrainingModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@index([moduleId])
+}
+
+model TrainingResult {
+  id         String          @id @default(cuid())
+  userId     String
+  moduleId   String
+  score      Float
+  passed     Boolean
+  answers    Json
+  completedAt DateTime       @default(now())
+  retryCount  Int            @default(0)
+
+  user   User           @relation(fields: [userId], references: [id])
+  module TrainingModule @relation(fields: [moduleId], references: [id])
+}
