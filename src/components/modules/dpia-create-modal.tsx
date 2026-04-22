@@ -113,10 +113,10 @@ export function DpiaCreateModal({ open, onClose, projects, defaultCompany, prefi
       if (data.processingPurpose) setProcessingPurpose(data.processingPurpose);
       if (data.dataObjects?.length) setDataObjects(data.dataObjects);
       if (data.suggestedRisks?.length) {
-        setRisks((prev) => {
-          const combined = [...new Set([...prev, ...data.suggestedRisks])];
-          return combined;
-        });
+        setRisks((prev) => [...new Set([...prev, ...data.suggestedRisks])]);
+      }
+      if (data.suggestedMitigations?.length) {
+        setMitigations((prev) => [...new Set([...prev, ...data.suggestedMitigations])]);
       }
     } catch (e: any) {
       setAiError(e.message);
