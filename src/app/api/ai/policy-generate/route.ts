@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 const POLICY_LABELS: Record<string, string> = {
   SECURITY_POLICY: "Πολιτική Ασφάλειας Πληροφοριών",
@@ -33,14 +34,35 @@ export async function POST(req: NextRequest) {
 
   const typeName = POLICY_LABELS[policyType] ?? policyTitle ?? "Πολιτική";
 
+  // Load organisation data for context
+  const org = await prisma.organization.findFirst();
+  const orgLines: string[] = [];
+  if (org?.name)        orgLines.push(`Επωνυμία: ${org.name}`);
+  if (org?.legalName)   orgLines.push(`Νομική επωνυμία: ${org.legalName}`);
+  if (org?.vatNumber)   orgLines.push(`ΑΦΜ: ${org.vatNumber}`);
+  if (org?.taxOffice)   orgLines.push(`ΔΟΥ: ${org.taxOffice}`);
+  if (org?.registryNo)  orgLines.push(`ΓΕΜΗ: ${org.registryNo}`);
+  if (org?.addressLine1 || org?.city) {
+    const addr = [org.addressLine1, org.postalCode, org.city, org.country].filter(Boolean).join(", ");
+    orgLines.push(`Έδρα: ${addr}`);
+  }
+  if (org?.website)     orgLines.push(`Website: ${org.website}`);
+  if (org?.description) orgLines.push(`Δραστηριότητα: ${org.description}`);
+
+  const orgContext = orgLines.length
+    ? `\n\nΣτοιχεία εταιρείας:\n${orgLines.join("\n")}`
+    : "";
+
   const systemPrompt = `Είσαι νομικός και τεχνικός σύμβουλος GDPR για ελληνικές εταιρείες.
 Γράφεις επίσημα εταιρικά έγγραφα πολιτικής σε επαγγελματικό επίπεδο, στα ελληνικά.
 Επιστρέφεις ΜΟΝΟ HTML (χωρίς markdown, χωρίς code blocks, χωρίς εξηγήσεις).
-Χρησιμοποίησε tags: <h1>, <h2>, <h3>, <p>, <ul>, <ol>, <li>, <strong>, <em>, <blockquote>, <hr>.`;
+Χρησιμοποίησε tags: <h1>, <h2>, <h3>, <p>, <ul>, <ol>, <li>, <strong>, <em>, <blockquote>, <hr>.
+Χρησιμοποίησε τα στοιχεία της εταιρείας (όνομα, ΑΦΜ, έδρα κ.λπ.) στο κείμενο της πολιτικής όπου ταιριάζει.`;
 
-  const userPrompt = `Γράψε μια πλήρη και λεπτομερή «${typeName}» για ελληνική εταιρεία.
+  const userPrompt = `Γράψε μια πλήρη και λεπτομερή «${typeName}» για την παρακάτω εταιρεία.${orgContext}
 
 Η πολιτική πρέπει:
+- Να αναφέρει ρητά το όνομα και τα στοιχεία της εταιρείας στην κεφαλίδα και όπου αρμόζει
 - Να είναι συμμορφωμένη με τον GDPR και την ελληνική νομοθεσία
 - Να περιλαμβάνει: Σκοπό, Πεδίο Εφαρμογής, Ορισμούς, Βασικές Αρχές/Κανόνες, Υποχρεώσεις, Παραβιάσεις & Συνέπειες, Αναθεώρηση Πολιτικής
 - Να χρησιμοποιεί επαγγελματική γλώσσα κατάλληλη για εταιρικό έγγραφο
