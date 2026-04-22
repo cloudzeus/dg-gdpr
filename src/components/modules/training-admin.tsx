@@ -9,7 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/ui/modal";
 import { CommandBar, CommandBarButton, CommandBarSeparator } from "@/components/shared/command-bar";
 import { createModule, deleteModule } from "@/actions/training-admin";
-import { Plus, Trash2, GraduationCap, Settings2, History, Users } from "lucide-react";
+import { TrainingNotifyModal } from "@/components/modules/training-notify-modal";
+import { Plus, Trash2, GraduationCap, Settings2, History, Users, Bell } from "lucide-react";
 
 type Module = {
   id: string;
@@ -23,6 +24,9 @@ type Module = {
   questionCount: number;
   resultCount: number;
 };
+
+type Department = { id: string; name: string };
+type UserRow = { id: string; name: string | null; email: string | null; departmentId: string | null };
 
 type HistoryRow = {
   id: string;
@@ -39,12 +43,17 @@ type HistoryRow = {
 export function TrainingAdmin({
   modules,
   history,
+  departments,
+  users,
 }: {
   modules: Module[];
   history: HistoryRow[];
+  departments: Department[];
+  users: UserRow[];
 }) {
   const [tab, setTab] = useState<"modules" | "history">("modules");
   const [creating, setCreating] = useState(false);
+  const [notifyModule, setNotifyModule] = useState<Module | null>(null);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -123,6 +132,9 @@ export function TrainingAdmin({
                     <Link href={`/admin/training/${m.id}`} className="flex-1">
                       <Button variant="outline" size="sm" className="w-full">Επεξεργασία περιεχομένου</Button>
                     </Link>
+                    <Button variant="outline" size="sm" onClick={() => setNotifyModule(m)} title="Ειδοποίηση χρηστών">
+                      <Bell className="h-3.5 w-3.5 text-primary" />
+                    </Button>
                     <Button variant="ghost" size="sm" onClick={() => handleDelete(m)}>
                       <Trash2 className="h-3.5 w-3.5 text-destructive" />
                     </Button>
@@ -176,6 +188,18 @@ export function TrainingAdmin({
             </table>
           </CardContent>
         </Card>
+      )}
+
+      {notifyModule && (
+        <TrainingNotifyModal
+          open={!!notifyModule}
+          onClose={() => setNotifyModule(null)}
+          moduleId={notifyModule.id}
+          moduleTitle={notifyModule.title}
+          moduleDescription={notifyModule.description}
+          departments={departments}
+          users={users}
+        />
       )}
 
       <Modal open={creating} onClose={() => setCreating(false)} title="Νέα Ενότητα Εκπαίδευσης">

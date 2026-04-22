@@ -1,13 +1,20 @@
 import { Topbar } from "@/components/layout/topbar";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { listTrainingModules, listTrainingHistory } from "@/actions/training-admin";
 import { TrainingAdmin } from "@/components/modules/training-admin";
 
 export default async function TrainingAdminPage() {
   const session = await auth();
-  const [modules, history] = await Promise.all([
+  const [modules, history, departments, users] = await Promise.all([
     listTrainingModules(),
     listTrainingHistory(),
+    prisma.department.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    prisma.user.findMany({
+      where: { isActive: true },
+      select: { id: true, name: true, email: true, departmentId: true },
+      orderBy: { name: "asc" },
+    }),
   ]);
 
   return (
@@ -16,6 +23,8 @@ export default async function TrainingAdminPage() {
       <main className="flex-1 overflow-y-auto p-6">
         <div className="max-w-6xl mx-auto">
           <TrainingAdmin
+            departments={departments}
+            users={users}
             modules={modules.map((m) => ({
               id: m.id,
               title: m.title,

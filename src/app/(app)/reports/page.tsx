@@ -22,7 +22,13 @@ export default async function ReportsPage() {
     prisma.voIPConfig.findMany({ select: { recordingEnabled: true, encryptionEnabled: true, legalBasis: true } }),
     prisma.trainingResult.findMany({ select: { passed: true, score: true } }),
     prisma.dpiaReport.findMany({ select: { status: true } }),
-    prisma.project.findMany({ select: { riskLevel: true, name: true } }),
+    prisma.project.findMany({
+      select: {
+        id: true,
+        name: true,
+        _count: { select: { dpiaReports: true, dpaContracts: true } },
+      },
+    }),
   ]);
 
   // Scores — null means "no data yet" (excluded from overall average)
@@ -72,11 +78,28 @@ export default async function ReportsPage() {
     { label: "DPIA", score: dpiaScore !== null ? Math.round(dpiaScore) : null, fill: "#f59e0b" },
   ];
 
-  const riskDistribution = [
-    { label: "Χαμηλός", value: projects.filter((p) => p.riskLevel === "LOW").length, fill: "#16a34a" },
-    { label: "Μεσαίος", value: projects.filter((p) => p.riskLevel === "MEDIUM").length, fill: "#ca8a04" },
-    { label: "Υψηλός", value: projects.filter((p) => p.riskLevel === "HIGH").length, fill: "#ea580c" },
-    { label: "Κρίσιμος", value: projects.filter((p) => p.riskLevel === "CRITICAL").length, fill: "#dc2626" },
+  // Compliance coverage: how many projects have DPIA and/or DPA
+  const coverageDistribution = [
+    {
+      label: "DPIA + DPA",
+      value: projects.filter((p) => p._count.dpiaReports > 0 && p._count.dpaContracts > 0).length,
+      fill: "#16a34a",
+    },
+    {
+      label: "Μόνο DPIA",
+      value: projects.filter((p) => p._count.dpiaReports > 0 && p._count.dpaContracts === 0).length,
+      fill: "#0078d4",
+    },
+    {
+      label: "Μόνο DPA",
+      value: projects.filter((p) => p._count.dpiaReports === 0 && p._count.dpaContracts > 0).length,
+      fill: "#8b5cf6",
+    },
+    {
+      label: "Χωρίς κάλυψη",
+      value: projects.filter((p) => p._count.dpiaReports === 0 && p._count.dpaContracts === 0).length,
+      fill: "#dc2626",
+    },
   ];
 
   return (
@@ -124,7 +147,7 @@ export default async function ReportsPage() {
             </Card>
 
             {/* Charts */}
-            <ComplianceCharts chartData={chartData} riskData={riskDistribution} />
+            <ComplianceCharts chartData={chartData} riskData={coverageDistribution} />
           </div>
 
           <LegalSidebar

@@ -49,12 +49,12 @@ export function ComplianceCharts({
       {/* Pie chart */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Κατανομή Κινδύνου Έργων</CardTitle>
+          <CardTitle className="text-base">Κάλυψη DPIA & DPA ανά Έργο</CardTitle>
         </CardHeader>
         <CardContent>
           {pieData.length === 0 ? (
             <div className="flex h-64 items-center justify-center text-muted-foreground text-sm">
-              Δεν υπάρχουν δεδομένα έργων
+              Δεν υπάρχουν έργα
             </div>
           ) : (
             <ResponsiveContainer width="100%" height={260}>
@@ -73,7 +73,7 @@ export function ComplianceCharts({
                     <Cell key={i} fill={entry.fill} />
                   ))}
                 </Pie>
-                <Tooltip formatter={(v) => [`${v} έργα`, ""]} contentStyle={{ borderRadius: 8, fontSize: 12 }} />
+                <Tooltip formatter={(v, name) => [`${v} έργα`, name]} contentStyle={{ borderRadius: 8, fontSize: 12 }} />
                 <Legend formatter={(v) => <span style={{ fontSize: 12 }}>{v}</span>} />
               </PieChart>
             </ResponsiveContainer>
