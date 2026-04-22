@@ -681,6 +681,19 @@ model DepartmentFlow {
   createdAt  DateTime @default(now())
 }
 
+// ─── Compliance History Snapshots ────────────────────────────────────────────
+
+model ComplianceSnapshot {
+  id             String   @id @default(cuid())
+  overallScore   Float
+  categoryScores Json     // Record<categoryId, { score: Float, gapCount: Int }>
+  gapCount       Int      @default(0)
+  criticalCount  Int      @default(0)
+  takenAt        DateTime @default(now())
+
+  @@index([takenAt])
+}
+
 // ─── Training & Compliance Academy ───────────────────────────────────────────
 
 model TrainingModule {

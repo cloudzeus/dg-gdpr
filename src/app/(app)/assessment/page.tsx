@@ -1,17 +1,20 @@
 import { auth } from "@/lib/auth";
 import { Topbar } from "@/components/layout/topbar";
 import { LegalSidebar } from "@/components/shared/legal-sidebar";
-import { getAllAssessmentAnswers } from "@/actions/assessment";
+import { getAllAssessmentAnswers, saveComplianceSnapshot, getComplianceSnapshots } from "@/actions/assessment";
 import {
   ASSESSMENT_CATEGORIES,
   calculateCategoryScore,
   getComplianceLevel,
   getOverallScore,
 } from "@/lib/assessment-questions";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import Link from "next/link";
-import { ChevronRight, CheckCircle2, AlertTriangle, XCircle, ClipboardList } from "lucide-react";
+import { ChevronRight, AlertTriangle, XCircle, History } from "lucide-react";
+import { ActionPlanAiButton } from "@/components/modules/action-plan-ai-button";
+import { ComplianceHistoryCard } from "@/components/modules/compliance-history-card";
+import { prisma } from "@/lib/prisma";
 
 export default async function AssessmentPage() {
   const session = await auth();
@@ -19,6 +22,36 @@ export default async function AssessmentPage() {
   const savedAnswers = Object.fromEntries(Object.entries(raw).map(([k, v]) => [k, v.answers]));
   const overallScore = getOverallScore(savedAnswers);
   const overallLevel = getComplianceLevel(overallScore);
+
+  // Save snapshot (deduplicates within same day)
+  await saveComplianceSnapshot(savedAnswers);
+
+  const snapshots = await getComplianceSnapshots();
+
+  // Context for AI: does org have related data?
+  const [org, dpiaCount, dpaCount, mapperCount] = await Promise.all([
+    prisma.organization.findFirst({ select: { name: true } }),
+    prisma.dpiaReport.count(),
+    prisma.dpaContract.count(),
+    prisma.dataMap.count(),
+  ]);
+
+  // Build gap list for AI
+  const allGaps: { category: string; question: string; action: string; priority: string }[] = [];
+  for (const cat of ASSESSMENT_CATEGORIES) {
+    const answers = savedAnswers[cat.id] ?? {};
+    for (const q of cat.questions) {
+      const ans = answers[q.id];
+      if (ans === "no" || ans === "partial") {
+        allGaps.push({
+          category: cat.title,
+          question: q.text,
+          action: ans === "no" ? q.actionIfNo : q.actionIfPartial,
+          priority: q.priority,
+        });
+      }
+    }
+  }
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -64,11 +97,8 @@ export default async function AssessmentPage() {
                 const answers = savedAnswers[cat.id] ?? {};
                 const answered = Object.values(answers).filter((v) => v !== null).length;
                 const { percentage } = calculateCategoryScore(cat.questions, answers);
-                const level = getComplianceLevel(answered > 0 ? percentage : -1);
                 const isStarted = answered > 0;
-                const isComplete = answered === cat.questions.length;
 
-                // Count gaps
                 const gaps = cat.questions.filter(
                   (q) => answers[q.id] === "no" || answers[q.id] === "partial"
                 ).length;
@@ -80,7 +110,6 @@ export default async function AssessmentPage() {
                     <Card className="hover:shadow-md transition-all cursor-pointer group">
                       <CardContent className="p-4">
                         <div className="flex items-center gap-4">
-                          {/* Status indicator */}
                           <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border-2 text-xl
                             ${!isStarted ? "bg-secondary border-border" :
                               percentage >= 80 ? "bg-green-50 border-green-300 dark:bg-green-950/30 dark:border-green-700" :
@@ -90,7 +119,6 @@ export default async function AssessmentPage() {
                             {!isStarted ? "—" : getComplianceLevel(percentage).icon}
                           </div>
 
-                          {/* Info */}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between gap-2">
                               <h4 className="font-semibold">{cat.title}</h4>
@@ -127,8 +155,29 @@ export default async function AssessmentPage() {
               })}
             </div>
 
-            {/* Gap action plan */}
-            <GapActionPlan savedAnswers={savedAnswers} />
+            {/* Gap action plan + AI proposal */}
+            <GapActionPlan
+              savedAnswers={savedAnswers}
+              allGaps={allGaps}
+              overallScore={overallScore}
+              orgName={org?.name}
+              hasDpia={dpiaCount > 0}
+              hasDpa={dpaCount > 0}
+              hasMapper={mapperCount > 0}
+            />
+
+            {/* Compliance history */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+                  <History className="h-4 w-4" />
+                  Ιστορικό Συμμόρφωσης
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ComplianceHistoryCard snapshots={snapshots as any} />
+              </CardContent>
+            </Card>
           </div>
 
           <LegalSidebar
@@ -154,35 +203,30 @@ export default async function AssessmentPage() {
 
 function GapActionPlan({
   savedAnswers,
+  allGaps,
+  overallScore,
+  orgName,
+  hasDpia,
+  hasDpa,
+  hasMapper,
 }: {
   savedAnswers: Record<string, Record<string, import("@/lib/assessment-questions").AnswerValue>>;
+  allGaps: { category: string; question: string; action: string; priority: string }[];
+  overallScore: number;
+  orgName?: string;
+  hasDpia: boolean;
+  hasDpa: boolean;
+  hasMapper: boolean;
 }) {
-  const criticalGaps: { category: string; question: string; action: string; priority: string }[] = [];
-  const highGaps: typeof criticalGaps = [];
-
-  for (const cat of ASSESSMENT_CATEGORIES) {
-    const answers = savedAnswers[cat.id] ?? {};
-    for (const q of cat.questions) {
-      const ans = answers[q.id];
-      if (ans === "no" || ans === "partial") {
-        const item = {
-          category: cat.title,
-          question: q.text,
-          action: ans === "no" ? q.actionIfNo : q.actionIfPartial,
-          priority: q.priority,
-        };
-        if (q.priority === "critical") criticalGaps.push(item);
-        else if (q.priority === "high") highGaps.push(item);
-      }
-    }
-  }
+  const criticalGaps = allGaps.filter((g) => g.priority === "critical");
+  const highGaps = allGaps.filter((g) => g.priority === "high");
 
   if (criticalGaps.length === 0 && highGaps.length === 0) return null;
 
   return (
     <div className="space-y-4">
       <h3 className="font-semibold text-muted-foreground uppercase tracking-wide text-xs">
-        Σχέδιο Δράσης — {criticalGaps.length + highGaps.length} ενέργειες απαιτούνται
+        Σχέδιο Δράσης — {allGaps.length} ενέργειες απαιτούνται
       </h3>
 
       {criticalGaps.length > 0 && (
@@ -220,6 +264,18 @@ function GapActionPlan({
           )}
         </div>
       )}
+
+      {/* AI proposal section */}
+      <div className="rounded-xl border border-violet-200 dark:border-violet-800 p-4 bg-violet-50/30 dark:bg-violet-950/10">
+        <ActionPlanAiButton
+          gaps={allGaps}
+          overallScore={overallScore}
+          orgName={orgName}
+          hasDpia={hasDpia}
+          hasDpa={hasDpa}
+          hasMapper={hasMapper}
+        />
+      </div>
     </div>
   );
 }

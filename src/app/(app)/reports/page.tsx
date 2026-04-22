@@ -5,7 +5,7 @@ import { LegalSidebar } from "@/components/shared/legal-sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ComplianceCharts } from "@/components/modules/compliance-charts";
 import { PdfExportButton } from "@/components/modules/pdf-export-button";
-import { BarChart3, Download } from "lucide-react";
+import { BarChart3 } from "lucide-react";
 import { scoreToGrade } from "@/lib/utils";
 
 export default async function ReportsPage() {
@@ -118,7 +118,7 @@ export default async function ReportsPage() {
                   Βάσει ολοκληρωμένων αξιολογήσεων σε όλους τους τομείς
                 </p>
               </div>
-              <PdfExportButton score={Math.round(overallScore)} grade={grade.label} chartData={chartData.map((d) => ({ ...d, score: d.score ?? 0 }))} />
+              <PdfExportButton />
             </div>
 
             {/* Overall score card */}

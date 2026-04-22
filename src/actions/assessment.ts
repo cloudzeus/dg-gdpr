@@ -6,6 +6,7 @@ import { logAction } from "@/lib/action-logger";
 import {
   ASSESSMENT_CATEGORIES,
   calculateCategoryScore,
+  getOverallScore,
   type AnswerValue,
 } from "@/lib/assessment-questions";
 import { revalidatePath } from "next/cache";
@@ -85,4 +86,53 @@ export async function getAllAssessmentAnswers(): Promise<
     }
   }
   return result;
+}
+
+export async function saveComplianceSnapshot(
+  savedAnswers: Record<string, Record<string, AnswerValue>>
+) {
+  const overallScore = getOverallScore(savedAnswers);
+
+  const categoryScores: Record<string, { score: number; gapCount: number }> = {};
+  let totalGaps = 0;
+  let totalCritical = 0;
+
+  for (const cat of ASSESSMENT_CATEGORIES) {
+    const answers = savedAnswers[cat.id] ?? {};
+    const { percentage } = calculateCategoryScore(cat.questions, answers);
+    const gapCount = cat.questions.filter(
+      (q) => answers[q.id] === "no" || answers[q.id] === "partial"
+    ).length;
+    const criticalCount = cat.questions.filter(
+      (q) => (answers[q.id] === "no" || answers[q.id] === "partial") && q.priority === "critical"
+    ).length;
+    categoryScores[cat.id] = { score: percentage, gapCount };
+    totalGaps += gapCount;
+    totalCritical += criticalCount;
+  }
+
+  // Avoid duplicate snapshots within the same day
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const existingToday = await prisma.complianceSnapshot.findFirst({
+    where: { takenAt: { gte: today } },
+  });
+
+  if (!existingToday) {
+    await prisma.complianceSnapshot.create({
+      data: {
+        overallScore,
+        categoryScores: categoryScores as any,
+        gapCount: totalGaps,
+        criticalCount: totalCritical,
+      },
+    });
+  }
+}
+
+export async function getComplianceSnapshots() {
+  return prisma.complianceSnapshot.findMany({
+    orderBy: { takenAt: "asc" },
+    take: 12,
+  });
 }
