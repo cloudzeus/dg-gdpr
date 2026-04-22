@@ -22,7 +22,7 @@ export async function GET(req: Request) {
 
   const buf = await buildDpiaWord({
     title: report.title,
-    projectName: report.project.name,
+    projectName: report.project?.name ?? "—",
     createdBy: report.user.name ?? "—",
     createdAt: report.createdAt,
     status: report.status,
