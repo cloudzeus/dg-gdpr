@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
 Πρότεινε:
 1. Κατηγορίες δεδομένων που θα επεξεργαστεί ο Εκτελών (5-8, συγκεκριμένες, GDPR-compliant)
 2. Σκοποί επεξεργασίας (4-6 σκοποί, ένας ανά στοιχείο)
-3. Τεχνικά & οργανωτικά μέτρα ασφαλείας (1-2 παράγραφοι, επαγγελματικά, GDPR Άρθρο 32)
+3. Τεχνικά & οργανωτικά μέτρα ασφαλείας (1 παράγραφος, επαγγελματικά, GDPR Άρθρο 32)
 4. Πιθανοί υποεκτελούντες (0-3, π.χ. cloud providers, εργαλεία ανάπτυξης)
 5. Προτεινόμενος χρόνος διατήρησης δεδομένων
 
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
           { role: "user", content: userPrompt },
         ],
         temperature: 0.35,
-        max_tokens: 1200,
+        max_tokens: 1500,
       }),
     });
 
@@ -59,6 +59,9 @@ export async function POST(req: NextRequest) {
     const data = await response.json();
     let content = data.choices?.[0]?.message?.content ?? "{}";
     content = content.replace(/^```json?\n?/i, "").replace(/\n?```$/i, "").trim();
+    const start = content.indexOf("{");
+    const end = content.lastIndexOf("}");
+    if (start !== -1 && end !== -1) content = content.slice(start, end + 1);
     const parsed = JSON.parse(content);
     return NextResponse.json(parsed);
   } catch (e: any) {

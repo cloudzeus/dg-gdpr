@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
 
   const userPrompt = `Για έργο ανάπτυξης λογισμικού με τίτλο "${projectName}"${projectDescription ? ` και περιγραφή: "${projectDescription}"` : ""}, δημιούργησε:
 
-1. Επαγγελματική περιγραφή σκοπού επεξεργασίας δεδομένων για DPIA (GDPR Άρθρο 35) — 3-4 παράγραφοι, λεπτομερής, στα ελληνικά. Να συμπεριλαμβάνει: σκοπό επεξεργασίας, κατηγορίες υποκειμένων, νομική βάση, αναγκαιότητα.
+1. Επαγγελματική περιγραφή σκοπού επεξεργασίας δεδομένων για DPIA (GDPR Άρθρο 35) — 2 παράγραφοι, στα ελληνικά. Να συμπεριλαμβάνει: σκοπό επεξεργασίας, κατηγορίες υποκειμένων, νομική βάση.
 2. Αντικείμενα δεδομένων που επεξεργάζεται το σύστημα (κατηγορίες δεδομένων, οντότητες, πηγές) — 5-8 στοιχεία.
 3. Προτεινόμενοι κίνδυνοι GDPR για αυτό το έργο — 5-7 κίνδυνοι σχετικοί με το project.
 
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
           { role: "user", content: userPrompt },
         ],
         temperature: 0.4,
-        max_tokens: 1500,
+        max_tokens: 2048,
       }),
     });
 
@@ -50,7 +50,12 @@ export async function POST(req: NextRequest) {
 
     const data = await response.json();
     let content = data.choices?.[0]?.message?.content ?? "{}";
+    // Strip markdown code fences
     content = content.replace(/^```json?\n?/i, "").replace(/\n?```$/i, "").trim();
+    // Extract only the JSON object (first { to last })
+    const start = content.indexOf("{");
+    const end = content.lastIndexOf("}");
+    if (start !== -1 && end !== -1) content = content.slice(start, end + 1);
     const parsed = JSON.parse(content);
     return NextResponse.json(parsed);
   } catch (e: any) {
