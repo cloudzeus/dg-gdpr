@@ -74,7 +74,10 @@ export function ActionPlanAiButton({ gaps, overallScore, orgName, hasDpia, hasDp
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ gaps, overallScore, orgName, hasDpia, hasDpa, hasMapper }),
       });
-      if (!res.ok) throw new Error("Σφάλμα AI");
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? `HTTP ${res.status}`);
+      }
       const data: AiPlan = await res.json();
       setPlan(data);
       setExpanded([0]);
