@@ -2,15 +2,16 @@ import { Topbar } from "@/components/layout/topbar";
 import { auth } from "@/lib/auth";
 import { getOrganization, updateOrganization } from "@/actions/organization";
 import { LogoUploader } from "@/components/modules/logo-uploader";
+import { OrgVatFields } from "@/components/modules/org-vat-fields";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Building2, Save } from "lucide-react";
 
 async function handleUpdate(formData: FormData) {
   "use server";
   await updateOrganization(formData);
 }
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Building2, Save } from "lucide-react";
 
 export default async function CompanyPage() {
   const session = await auth();
@@ -33,25 +34,13 @@ export default async function CompanyPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <Field label="Εμπορική Επωνυμία *">
-                    <Input name="name" defaultValue={org?.name ?? ""} required />
-                  </Field>
-                  <Field label="Νομική Επωνυμία">
-                    <Input name="legalName" defaultValue={org?.legalName ?? ""} />
-                  </Field>
-                </div>
-                <div className="grid grid-cols-3 gap-4">
-                  <Field label="ΑΦΜ">
-                    <Input name="vatNumber" defaultValue={org?.vatNumber ?? ""} />
-                  </Field>
-                  <Field label="ΔΟΥ">
-                    <Input name="taxOffice" defaultValue={org?.taxOffice ?? ""} />
-                  </Field>
-                  <Field label="ΓΕΜΗ">
-                    <Input name="registryNo" defaultValue={org?.registryNo ?? ""} />
-                  </Field>
-                </div>
+                <OrgVatFields org={{
+                  name: org?.name ?? "",
+                  legalName: org?.legalName ?? "",
+                  vatNumber: org?.vatNumber ?? "",
+                  taxOffice: org?.taxOffice ?? "",
+                  registryNo: org?.registryNo ?? "",
+                }} />
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-muted-foreground">Logo Εταιρείας</label>
                   <LogoUploader currentLogo={org?.logo ?? null} />
@@ -73,20 +62,20 @@ export default async function CompanyPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <Field label="Διεύθυνση">
-                  <Input name="addressLine1" defaultValue={org?.addressLine1 ?? ""} placeholder="Οδός & Αριθμός" />
+                  <Input id="org-addressLine1" name="addressLine1" defaultValue={org?.addressLine1 ?? ""} placeholder="Οδός & Αριθμός" />
                 </Field>
                 <Field label="Διεύθυνση (2)">
                   <Input name="addressLine2" defaultValue={org?.addressLine2 ?? ""} />
                 </Field>
                 <div className="grid grid-cols-3 gap-4">
                   <Field label="Πόλη">
-                    <Input name="city" defaultValue={org?.city ?? ""} />
+                    <Input id="org-city" name="city" defaultValue={org?.city ?? ""} />
                   </Field>
                   <Field label="ΤΚ">
-                    <Input name="postalCode" defaultValue={org?.postalCode ?? ""} />
+                    <Input id="org-postalCode" name="postalCode" defaultValue={org?.postalCode ?? ""} />
                   </Field>
                   <Field label="Χώρα">
-                    <Input name="country" defaultValue={org?.country ?? "Ελλάδα"} />
+                    <Input id="org-country" name="country" defaultValue={org?.country ?? "Ελλάδα"} />
                   </Field>
                 </div>
                 <Field label="Website">
