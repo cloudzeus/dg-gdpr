@@ -9,7 +9,6 @@ import { Modal } from "@/components/ui/modal";
 import { CommandBar, CommandBarButton, CommandBarSeparator } from "@/components/shared/command-bar";
 import { createUser, updateUser, deleteUser, importEntraUsers } from "@/actions/users-admin";
 import { Plus, Pencil, Trash2, Search, Lock, Download } from "lucide-react";
-import { MdMicrosoft } from "react-icons/md";
 
 type AppUser = {
   id: string;
@@ -378,7 +377,7 @@ function EntraImportModal({
       <div className="space-y-3">
         {/* Header info */}
         <div className="flex items-center gap-2 rounded-sm px-3 py-2 text-sm" style={{ background: "rgba(0,120,212,0.07)", border: "1px solid rgba(0,120,212,0.2)" }}>
-          <MdMicrosoft size={16} style={{ color: "#0078d4", flexShrink: 0 }} />
+          <Download size={15} style={{ color: "#0078d4", flexShrink: 0 }} />
           <span style={{ color: "#0078d4" }}>Φόρτωση χρηστών από το Microsoft Entra ID του οργανισμού σας</span>
         </div>
 
