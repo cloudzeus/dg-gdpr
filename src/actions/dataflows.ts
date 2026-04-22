@@ -15,6 +15,8 @@ export interface DataEntry {
   destinations: string[];
   riskLevel: RiskLevel;
   externalTransfer: boolean;
+  transferCountries?: string[];
+  transferMechanism?: string;
   notes?: string;
 }
 

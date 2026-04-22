@@ -162,16 +162,119 @@ function FlowRow({ entry }: { entry: DataEntry }) {
             <span>{entry.retention}</span>
           </div>
           {entry.externalTransfer && (
-            <div
-              className="flex items-center justify-end gap-1 text-[11px] font-semibold"
-              style={{ color: "#ca5d00" }}
-            >
-              <MdPublic size={12} />
-              <span>Εκτός ΕΕ</span>
+            <div className="space-y-0.5">
+              <div
+                className="flex items-center justify-end gap-1 text-[11px] font-semibold"
+                style={{ color: "#ca5d00" }}
+              >
+                <MdPublic size={12} />
+                <span>Εκτός ΕΕ</span>
+              </div>
+              {entry.transferCountries && entry.transferCountries.length > 0 && (
+                <p className="text-[10px] text-right" style={{ color: "#ca5d00" }}>
+                  {entry.transferCountries.join(", ")}
+                </p>
+              )}
+              {entry.transferMechanism && (
+                <p className="text-[10px] text-right text-muted-foreground">
+                  {entry.transferMechanism.split("(")[0].trim()}
+                </p>
+              )}
             </div>
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ─── Transfer country picker ───────────────────────────────────── */
+const NON_EU_COUNTRIES = [
+  { code: "GB", name: "Ηνωμένο Βασίλειο", status: "Επαρκής Απόφαση" },
+  { code: "CH", name: "Ελβετία", status: "Επαρκής Απόφαση" },
+  { code: "NO", name: "Νορβηγία", status: "ΕΟΧ" },
+  { code: "IS", name: "Ισλανδία", status: "ΕΟΧ" },
+  { code: "LI", name: "Λίχτενστάιν", status: "ΕΟΧ" },
+  { code: "JP", name: "Ιαπωνία", status: "Επαρκής Απόφαση" },
+  { code: "IL", name: "Ισραήλ", status: "Επαρκής Απόφαση" },
+  { code: "CA", name: "Καναδάς", status: "Επαρκής Απόφαση" },
+  { code: "KR", name: "Νότια Κορέα", status: "Επαρκής Απόφαση" },
+  { code: "NZ", name: "Νέα Ζηλανδία", status: "Επαρκής Απόφαση" },
+  { code: "US", name: "ΗΠΑ", status: "SCCs/DPF" },
+  { code: "IN", name: "Ινδία", status: "SCCs" },
+  { code: "CN", name: "Κίνα", status: "SCCs" },
+  { code: "AU", name: "Αυστραλία", status: "SCCs" },
+  { code: "BR", name: "Βραζιλία", status: "SCCs" },
+  { code: "SG", name: "Σιγκαπούρη", status: "SCCs" },
+  { code: "AE", name: "Ηνωμένα Αραβικά Εμιράτα", status: "SCCs" },
+  { code: "TR", name: "Τουρκία", status: "SCCs" },
+  { code: "RU", name: "Ρωσία", status: "SCCs — Ειδικός Κίνδυνος" },
+];
+
+function TransferCountryPicker({
+  selected,
+  onChange,
+}: {
+  selected: string[];
+  onChange: (v: string[]) => void;
+}) {
+  const [custom, setCustom] = useState("");
+
+  const toggle = (name: string) =>
+    onChange(selected.includes(name) ? selected.filter((s) => s !== name) : [...selected, name]);
+
+  const addCustom = () => {
+    const v = custom.trim();
+    if (v && !selected.includes(v)) onChange([...selected, v]);
+    setCustom("");
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-1.5">
+        {NON_EU_COUNTRIES.map((c) => {
+          const active = selected.includes(c.name);
+          return (
+            <button
+              key={c.code}
+              type="button"
+              onClick={() => toggle(c.name)}
+              className="text-[11px] px-2 py-0.5 rounded-sm transition-colors"
+              style={{
+                background: active ? "rgba(202,93,0,0.15)" : "rgb(var(--secondary))",
+                border: active ? "1px solid #ca5d00" : "1px solid rgb(var(--border))",
+                color: active ? "#ca5d00" : "rgb(var(--muted-foreground))",
+                fontWeight: active ? 600 : 400,
+              }}
+              title={c.status}
+            >
+              {c.name}
+            </button>
+          );
+        })}
+      </div>
+      <div className="flex gap-1.5">
+        <Input
+          value={custom}
+          onChange={(e) => setCustom(e.target.value)}
+          placeholder="Άλλη χώρα..."
+          className="text-xs"
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addCustom(); } }}
+        />
+        <button
+          type="button"
+          onClick={addCustom}
+          className="px-2 py-1 rounded text-xs font-medium"
+          style={{ background: "rgb(var(--secondary))", border: "1px solid rgb(var(--border))", color: "rgb(var(--foreground))" }}
+        >
+          +
+        </button>
+      </div>
+      {selected.length > 0 && (
+        <p className="text-[10px]" style={{ color: "#ca5d00" }}>
+          Επιλεγμένες: {selected.join(", ")}
+        </p>
+      )}
     </div>
   );
 }
@@ -273,13 +376,49 @@ function EntryForm({
           </label>
           <Select
             value={entry.externalTransfer ? "yes" : "no"}
-            onChange={(e) => update({ externalTransfer: e.target.value === "yes" })}
+            onChange={(e) => update({ externalTransfer: e.target.value === "yes", transferCountries: [], transferMechanism: "" })}
           >
             <option value="no">Όχι</option>
-            <option value="yes">Ναι (απαιτεί SCCs / BCRs)</option>
+            <option value="yes">Ναι — εκτός ΕΕ/ΕΟΧ</option>
           </Select>
         </div>
       </div>
+
+      {/* External transfer details */}
+      {entry.externalTransfer && (
+        <div
+          className="grid grid-cols-2 gap-3 rounded-sm p-3"
+          style={{ background: "rgba(202,93,0,0.05)", border: "1px solid rgba(202,93,0,0.25)" }}
+        >
+          <div className="space-y-1">
+            <label className="block text-[12px] font-semibold" style={{ color: "#ca5d00" }}>
+              Χώρες Προορισμού εκτός ΕΕ
+            </label>
+            <TransferCountryPicker
+              selected={entry.transferCountries ?? []}
+              onChange={(v) => update({ transferCountries: v })}
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="block text-[12px] font-semibold" style={{ color: "#ca5d00" }}>
+              Νομική Βάση Διαβίβασης (Άρθρα 44-49)
+            </label>
+            <Select
+              value={entry.transferMechanism ?? ""}
+              onChange={(e) => update({ transferMechanism: e.target.value })}
+            >
+              <option value="">— Επιλέξτε —</option>
+              <option value="Επαρκής Απόφαση (Άρθ. 45)">Επαρκής Απόφαση (Άρθ. 45)</option>
+              <option value="Τυποποιημένες Ρήτρες — SCCs (Άρθ. 46(2)(γ))">Τυποποιημένες Ρήτρες — SCCs (Άρθ. 46(2)(γ))</option>
+              <option value="Δεσμευτικοί Εταιρικοί Κανόνες — BCRs (Άρθ. 47)">Δεσμευτικοί Εταιρικοί Κανόνες — BCRs (Άρθ. 47)</option>
+              <option value="Εγκεκριμένος Κώδικας Δεοντολογίας (Άρθ. 46(2)(ε))">Εγκεκριμένος Κώδικας Δεοντολογίας (Άρθ. 46(2)(ε))</option>
+              <option value="Ρητή Συγκατάθεση (Άρθ. 49(1)(α))">Ρητή Συγκατάθεση (Άρθ. 49(1)(α))</option>
+              <option value="Εκτέλεση Σύμβασης (Άρθ. 49(1)(β))">Εκτέλεση Σύμβασης (Άρθ. 49(1)(β))</option>
+              <option value="Ζωτικό Συμφέρον (Άρθ. 49(1)(δ))">Ζωτικό Συμφέρον (Άρθ. 49(1)(δ))</option>
+            </Select>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-1">
         <label className="block text-[12px] font-semibold" style={{ color: "rgb(var(--foreground))" }}>
