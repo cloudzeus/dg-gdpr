@@ -87,6 +87,8 @@ export function DpiaCreateModal({ open, onClose, projects, defaultCompany, prefi
   const [customRisk, setCustomRisk] = useState("");
   const [mitigations, setMitigations] = useState<string[]>([]);
   const [customMitigation, setCustomMitigation] = useState("");
+  // AI-generated pairs: index-aligned risks ↔ mitigations
+  const [aiPairs, setAiPairs] = useState<{ risk: string; mitigation: string }[]>([]);
 
   // Step 3
   const [necessityAssessed, setNecessityAssessed] = useState(false);
@@ -113,10 +115,17 @@ export function DpiaCreateModal({ open, onClose, projects, defaultCompany, prefi
       if (data.processingPurpose) setProcessingPurpose(data.processingPurpose);
       if (data.dataObjects?.length) setDataObjects(data.dataObjects);
       if (data.suggestedRisks?.length) {
-        setRisks((prev) => [...new Set([...prev, ...data.suggestedRisks])]);
+        setRisks(data.suggestedRisks);
       }
       if (data.suggestedMitigations?.length) {
-        setMitigations((prev) => [...new Set([...prev, ...data.suggestedMitigations])]);
+        setMitigations(data.suggestedMitigations);
+        // Build paired view if lengths match
+        if (data.suggestedRisks?.length === data.suggestedMitigations.length) {
+          setAiPairs(data.suggestedRisks.map((r: string, i: number) => ({
+            risk: r,
+            mitigation: data.suggestedMitigations[i],
+          })));
+        }
       }
     } catch (e: any) {
       setAiError(e.message);
@@ -294,33 +303,92 @@ export function DpiaCreateModal({ open, onClose, projects, defaultCompany, prefi
       {/* Step 2 */}
       {step === 2 && (
         <div className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium flex items-center gap-1.5">
-              <FiAlertTriangle className="h-3.5 w-3.5 text-orange-500" />
-              Κίνδυνοι — επιλέξτε ή προσθέστε
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              {/* Show both presets and AI-suggested risks */}
-              {[...new Set([...RISK_PRESETS, ...risks.filter((r) => !RISK_PRESETS.includes(r))])].map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  onClick={() => toggleRisk(r)}
-                  className={`text-left text-xs rounded-lg border px-3 py-2 transition-all font-medium ${
-                    risks.includes(r)
-                      ? "border-orange-600 bg-orange-600 text-white"
-                      : "border-border hover:border-orange-400 text-foreground"
-                  }`}
-                >
-                  {r}
-                </button>
-              ))}
+
+          {/* AI paired view */}
+          {aiPairs.length > 0 ? (
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-1.5 text-xs font-semibold text-muted-foreground px-1">
+                <span className="flex items-center gap-1"><FiAlertTriangle className="h-3 w-3 text-orange-500" /> Κίνδυνος</span>
+                <span className="flex items-center gap-1"><FiCheckCircle className="h-3 w-3 text-green-600" /> Μέτρο Αντιμετώπισης</span>
+              </div>
+              <div className="rounded-lg border border-border divide-y divide-border overflow-hidden">
+                {aiPairs.map((pair, i) => {
+                  const riskOn = risks.includes(pair.risk);
+                  const mitOn = mitigations.includes(pair.mitigation);
+                  return (
+                    <div key={i} className={`grid grid-cols-2 transition-colors ${riskOn ? "bg-orange-50/40 dark:bg-orange-950/10" : ""}`}>
+                      <button
+                        type="button"
+                        onClick={() => toggleRisk(pair.risk)}
+                        className={`text-left text-xs px-3 py-2.5 border-r border-border font-medium transition-all ${
+                          riskOn ? "text-orange-700 dark:text-orange-400" : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        <span className={`inline-block w-4 h-4 rounded border mr-2 align-middle text-center leading-3 text-[10px] shrink-0 ${
+                          riskOn ? "bg-orange-500 border-orange-500 text-white" : "border-border"
+                        }`}>{riskOn ? "✓" : ""}</span>
+                        {pair.risk}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => toggleMitigation(pair.mitigation)}
+                        className={`text-left text-xs px-3 py-2.5 font-medium transition-all ${
+                          mitOn ? "text-green-700 dark:text-green-400" : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        <span className={`inline-block w-4 h-4 rounded border mr-2 align-middle text-center leading-3 text-[10px] shrink-0 ${
+                          mitOn ? "bg-green-500 border-green-500 text-white" : "border-border"
+                        }`}>{mitOn ? "✓" : ""}</span>
+                        {pair.mitigation}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+              <p className="text-[11px] text-muted-foreground">Κλικ για επιλογή/αποεπιλογή κινδύνου ή μέτρου αντιμετώπισης.</p>
             </div>
+          ) : (
+            /* Manual selection fallback */
+            <>
+              <div className="space-y-2">
+                <label className="text-sm font-medium flex items-center gap-1.5">
+                  <FiAlertTriangle className="h-3.5 w-3.5 text-orange-500" />
+                  Κίνδυνοι — επιλέξτε ή προσθέστε
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {[...new Set([...RISK_PRESETS, ...risks.filter((r) => !RISK_PRESETS.includes(r))])].map((r) => (
+                    <button key={r} type="button" onClick={() => toggleRisk(r)}
+                      className={`text-left text-xs rounded-lg border px-3 py-2 transition-all font-medium ${
+                        risks.includes(r) ? "border-orange-600 bg-orange-600 text-white" : "border-border hover:border-orange-400 text-foreground"
+                      }`}>{r}</button>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium flex items-center gap-1.5">
+                  <FiCheckCircle className="h-3.5 w-3.5 text-green-600" />
+                  Μέτρα Μείωσης Κινδύνου
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {MITIGATION_PRESETS.map((m) => (
+                    <button key={m} type="button" onClick={() => toggleMitigation(m)}
+                      className={`text-left text-xs rounded-lg border px-3 py-2 transition-all font-medium ${
+                        mitigations.includes(m) ? "border-green-600 bg-green-600 text-white" : "border-border hover:border-green-500 text-foreground"
+                      }`}>{m}</button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Custom risk add */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Προσθήκη κινδύνου</label>
             <div className="flex gap-2">
               <Input
                 value={customRisk}
                 onChange={(e) => setCustomRisk(e.target.value)}
-                placeholder="Προσθήκη κινδύνου..."
+                placeholder="Νέος κίνδυνος..."
                 className="text-sm"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && customRisk.trim()) {
@@ -345,32 +413,14 @@ export function DpiaCreateModal({ open, onClose, projects, defaultCompany, prefi
             </div>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium flex items-center gap-1.5">
-              <FiCheckCircle className="h-3.5 w-3.5 text-green-600" />
-              Μέτρα Μείωσης Κινδύνου
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              {MITIGATION_PRESETS.map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => toggleMitigation(m)}
-                  className={`text-left text-xs rounded-lg border px-3 py-2 transition-all font-medium ${
-                    mitigations.includes(m)
-                      ? "border-green-600 bg-green-600 text-white"
-                      : "border-border hover:border-green-500 text-foreground"
-                  }`}
-                >
-                  {m}
-                </button>
-              ))}
-            </div>
+          {/* Custom mitigation add */}
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-muted-foreground">Προσθήκη μέτρου αντιμετώπισης</label>
             <div className="flex gap-2">
               <Input
                 value={customMitigation}
                 onChange={(e) => setCustomMitigation(e.target.value)}
-                placeholder="Προσθήκη μέτρου..."
+                placeholder="Νέο μέτρο..."
                 className="text-sm"
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && customMitigation.trim()) {
