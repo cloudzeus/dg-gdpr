@@ -36,9 +36,9 @@ export default async function NewProjectPage() {
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-sm font-medium">Επίπεδο Κινδύνου</label>
-                    <Select name="riskLevel">
+                    <Select name="riskLevel" defaultValue="MEDIUM">
                       <option value="LOW">Χαμηλός</option>
-                      <option value="MEDIUM" selected>Μεσαίος</option>
+                      <option value="MEDIUM">Μεσαίος</option>
                       <option value="HIGH">Υψηλός</option>
                       <option value="CRITICAL">Κρίσιμος</option>
                     </Select>
