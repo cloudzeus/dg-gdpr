@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 
+function str(v: unknown): string {
+  if (!v) return "";
+  if (typeof v === "string") return v.trim();
+  if (typeof v === "object" && v !== null) {
+    const s = (v as any)["$t"] ?? (v as any).value ?? (v as any).text ?? "";
+    return String(s).trim();
+  }
+  return String(v).trim();
+}
+
 export async function POST(req: NextRequest) {
   const session = await auth();
   if (!session?.user?.id) {
@@ -41,13 +51,13 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       afm: r.afm,
-      name: r.commer_title?.trim() || r.onomasia?.trim() || "",
-      legalName: r.onomasia?.trim() || "",
-      taxOffice: r.doy_descr?.trim() || "",
-      legalStatus: r.legal_status_descr?.trim() || "",
-      addressLine1: [r.postal_address, r.postal_address_no].filter(Boolean).join(" ").trim(),
-      postalCode: r.postal_zip_code?.trim() || "",
-      city: r.postal_area_description?.trim() || "",
+      name: str(r.commer_title) || str(r.onomasia),
+      legalName: str(r.onomasia),
+      taxOffice: str(r.doy_descr),
+      legalStatus: str(r.legal_status_descr),
+      addressLine1: [str(r.postal_address), str(r.postal_address_no)].filter(Boolean).join(" "),
+      postalCode: str(r.postal_zip_code),
+      city: str(r.postal_area_description),
       country: "Ελλάδα",
       isActive: r.deactivation_flag === "1",
       registDate: r.regist_date || null,
