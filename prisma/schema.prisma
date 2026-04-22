@@ -497,26 +497,35 @@ enum DpaStatus {
 // ─── DPA Contracts ────────────────────────────────────────────────────────────
 
 model DpaContract {
-  id             String      @id @default(cuid())
-  projectId      String
-  userId         String
-  companyId      String?
-  roleInDpa      DpaRole?
-  title          String
-  processorName  String
-  controllerName String
-  dataCategories Json
-  purposes       Json
-  retentionPeriod String
-  safeguards     String?     @db.Text
-  subProcessors  Json?
-  signedAt       DateTime?
-  expiresAt      DateTime?
-  status         DpaStatus   @default(PENDING)
-  pdfUrl         String?
-  gdprArticles   String?
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
+  id               String    @id @default(cuid())
+  projectId        String
+  userId           String
+  companyId        String?
+  roleInDpa        DpaRole?
+  title            String
+  processorName    String
+  processorVat     String?
+  processorAddress String?   @db.Text
+  processorRep     String?
+  processorEmail   String?
+  controllerName   String
+  controllerVat    String?
+  controllerAddress String?  @db.Text
+  controllerRep    String?
+  controllerEmail  String?
+  dataCategories   Json
+  purposes         Json
+  retentionPeriod  String
+  safeguards       String?   @db.Text
+  subProcessors    Json?
+  signedAt         DateTime?
+  expiresAt        DateTime?
+  status           DpaStatus @default(PENDING)
+  pdfUrl           String?
+  gdprArticles     String?
+  notes            String?   @db.Text
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   project Project  @relation(fields: [projectId], references: [id])
   user    User     @relation(fields: [userId], references: [id])

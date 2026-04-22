@@ -19,13 +19,16 @@ import {
 
 export interface DpaTemplateData {
   controllerName: string;
+  controllerVat?: string;
   controllerAddress?: string;
   controllerRep?: string;
   controllerEmail?: string;
   processorName: string;
+  processorVat?: string;
   processorAddress?: string;
   processorRep?: string;
   processorEmail?: string;
+  projectName?: string;
   title: string;
   dataCategories: string[];
   purposes: string[];
@@ -204,8 +207,11 @@ export async function buildDpaWord(data: DpaTemplateData): Promise<Buffer> {
           // Parties
           h1("ΆΡΘΡΟ 1: Μέρη της Σύμβασης"),
 
+          ...(data.projectName ? [field("Σχετικό Έργο", data.projectName)] : []),
+
           h2("Υπεύθυνος Επεξεργασίας (Controller)"),
           field("Επωνυμία", data.controllerName),
+          ...(data.controllerVat ? [field("ΑΦΜ", data.controllerVat)] : []),
           field("Διεύθυνση", data.controllerAddress ?? "—"),
           field("Εκπρόσωπος", data.controllerRep ?? "—"),
           field("Email", data.controllerEmail ?? "—"),
@@ -214,6 +220,7 @@ export async function buildDpaWord(data: DpaTemplateData): Promise<Buffer> {
 
           h2("Εκτελών την Επεξεργασία (Processor)"),
           field("Επωνυμία", data.processorName),
+          ...(data.processorVat ? [field("ΑΦΜ", data.processorVat)] : []),
           field("Διεύθυνση", data.processorAddress ?? "—"),
           field("Εκπρόσωπος", data.processorRep ?? "—"),
           field("Email", data.processorEmail ?? "—"),

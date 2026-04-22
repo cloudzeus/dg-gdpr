@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DpiaPageActions, DpaPageActions, DpaWordExportButton } from "@/components/modules/dpia-page-actions";
-import { CheckCircle2, Clock, AlertTriangle, FileText } from "lucide-react";
+import { CheckCircle2, Clock, AlertTriangle, FileText, Download } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import Link from "next/link";
 
@@ -34,7 +34,11 @@ export default async function DpiaPage() {
     }),
     prisma.dpaContract.findMany({
       orderBy: { createdAt: "desc" },
-      include: { project: { select: { name: true } } },
+      select: {
+        id: true, title: true, processorName: true, controllerName: true,
+        status: true, signedAt: true, pdfUrl: true,
+        project: { select: { name: true } },
+      },
     }),
     prisma.project.findMany({ select: { id: true, name: true, description: true }, where: { status: "ACTIVE" } }),
   ]);
@@ -133,7 +137,18 @@ export default async function DpiaPage() {
                         {dpaStatusLabels[c.status]}
                       </Badge>
                       {c.signedAt && <span className="text-xs text-muted-foreground">{formatDate(c.signedAt)}</span>}
-                      <DpaWordExportButton contractId={c.id} />
+                      {(c as any).pdfUrl ? (
+                        <a href={(c as any).pdfUrl} target="_blank" rel="noreferrer" download>
+                          <Button variant="outline" size="sm" className="gap-1.5">
+                            <FileText className="h-3.5 w-3.5" /> Word
+                          </Button>
+                        </a>
+                      ) : (
+                        <DpaWordExportButton contractId={c.id} />
+                      )}
+                      <Link href={`/dpa/${c.id}`}>
+                        <Button variant="outline" size="sm">Προβολή</Button>
+                      </Link>
                     </div>
                   </div>
                 ))}
