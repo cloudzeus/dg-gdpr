@@ -9,6 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { FiInfo, FiX, FiChevronRight, FiChevronLeft, FiDownload } from "react-icons/fi";
+import { Loader2 } from "lucide-react";
+import { MdSearch } from "react-icons/md";
 
 interface Project {
   id: string;
@@ -160,11 +162,11 @@ export function DpaCreateModal({ open, onClose, projects }: Props) {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Υπεύθυνος Επεξεργασίας (Controller) *</label>
-              <Input value={controllerName} onChange={(e) => setControllerName(e.target.value)} placeholder="Ονομασία πελάτη" />
+              <VatNameLookup value={controllerName} onChange={setControllerName} placeholder="Ονομασία πελάτη" />
             </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">Εκτελών Επεξεργασία (Processor) *</label>
-              <Input value={processorName} onChange={(e) => setProcessorName(e.target.value)} placeholder="Ονομασία εταιρείας σας" />
+              <VatNameLookup value={processorName} onChange={setProcessorName} placeholder="Ονομασία εταιρείας σας" />
             </div>
           </div>
           <div className="space-y-1.5">
@@ -271,5 +273,68 @@ export function DpaCreateModal({ open, onClose, projects }: Props) {
         )}
       </div>
     </Modal>
+  );
+}
+
+function VatNameLookup({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+}) {
+  const [afm, setAfm] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [info, setInfo] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function lookup() {
+    if (!/^\d{9}$/.test(afm)) { setErr("9 ψηφία"); return; }
+    setLoading(true); setErr(null); setInfo(null);
+    try {
+      const res = await fetch("/api/admin/vat-lookup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ afm }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setErr(data.error ?? "Σφάλμα"); return; }
+      onChange(data.name || data.legalName || "");
+      setInfo(data.legalStatus || null);
+    } catch (e: any) {
+      setErr(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <div className="flex gap-1.5">
+        <Input
+          value={afm}
+          onChange={(e) => setAfm(e.target.value.replace(/\D/g, "").slice(0, 9))}
+          placeholder="ΑΦΜ"
+          maxLength={9}
+          className="w-28 font-mono text-xs"
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); lookup(); } }}
+        />
+        <button
+          type="button"
+          onClick={lookup}
+          disabled={loading || afm.length !== 9}
+          className="flex items-center gap-1 rounded px-2 py-1 text-xs disabled:opacity-40"
+          style={{ background: "rgba(0,120,212,0.1)", color: "#0078d4", border: "1px solid rgba(0,120,212,0.25)" }}
+        >
+          {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <MdSearch size={13} />}
+          ΑΦΜ
+        </button>
+      </div>
+      <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />
+      {err && <p className="text-[11px] text-destructive">{err}</p>}
+      {info && <p className="text-[11px]" style={{ color: "#107c10" }}>✓ {info}</p>}
+    </div>
   );
 }

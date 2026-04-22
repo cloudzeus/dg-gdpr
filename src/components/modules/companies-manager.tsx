@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/ui/modal";
 import { CommandBar, CommandBarButton, CommandBarSeparator } from "@/components/shared/command-bar";
 import { createCompany, updateCompany, deleteCompany } from "@/actions/companies";
-import { Plus, Pencil, Trash2, Search, FileText } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, FileText, Loader2 } from "lucide-react";
+import { MdSearch } from "react-icons/md";
 
 type Company = {
   id: string;
@@ -34,6 +35,21 @@ type Company = {
   dpaCount: number;
 };
 
+type VatData = {
+  afm: string;
+  name: string;
+  legalName: string;
+  taxOffice: string;
+  legalStatus: string;
+  addressLine1: string;
+  postalCode: string;
+  city: string;
+  country: string;
+  isActive: boolean;
+  registDate: string | null;
+  activities: string[];
+};
+
 const RELATIONSHIPS = [
   { value: "CLIENT", label: "Πελάτης", variant: "success" as const },
   { value: "SUPPLIER", label: "Προμηθευτής", variant: "warning" as const },
@@ -41,6 +57,30 @@ const RELATIONSHIPS = [
   { value: "SUBSIDIARY", label: "Θυγατρική", variant: "secondary" as const },
   { value: "OTHER", label: "Άλλο", variant: "secondary" as const },
 ];
+
+function emptyForm(c?: Company | null) {
+  return {
+    name: c?.name ?? "",
+    legalName: c?.legalName ?? "",
+    vatNumber: c?.vatNumber ?? "",
+    taxOffice: c?.taxOffice ?? "",
+    registryNo: c?.registryNo ?? "",
+    email: c?.email ?? "",
+    phone: c?.phone ?? "",
+    website: c?.website ?? "",
+    addressLine1: c?.addressLine1 ?? "",
+    addressLine2: c?.addressLine2 ?? "",
+    city: c?.city ?? "",
+    postalCode: c?.postalCode ?? "",
+    country: c?.country ?? "Ελλάδα",
+    contactName: c?.contactName ?? "",
+    contactEmail: c?.contactEmail ?? "",
+    contactPhone: c?.contactPhone ?? "",
+    notes: c?.notes ?? "",
+    isActive: c?.isActive ?? true,
+    relationships: c?.relationships ?? [],
+  };
+}
 
 export function CompaniesManager({ companies }: { companies: Company[] }) {
   const [query, setQuery] = useState("");
@@ -62,20 +102,6 @@ export function CompaniesManager({ companies }: { companies: Company[] }) {
       );
     });
   }, [companies, query, filter]);
-
-  const handleSubmit = (id: string | null) => async (fd: FormData) => {
-    setError(null);
-    startTransition(async () => {
-      try {
-        if (id) await updateCompany(id, fd);
-        else await createCompany(fd);
-        setEditing(null);
-        setCreating(false);
-      } catch (e: any) {
-        setError(e.message ?? "Σφάλμα");
-      }
-    });
-  };
 
   const handleDelete = (c: Company) => {
     if (!confirm(`Διαγραφή εταιρείας "${c.name}";`)) return;
@@ -160,69 +186,207 @@ export function CompaniesManager({ companies }: { companies: Company[] }) {
         </CardContent>
       </Card>
 
-      <Modal
-        open={creating || editing !== null}
-        onClose={() => { setCreating(false); setEditing(null); }}
-        title={editing ? "Επεξεργασία Εταιρείας" : "Νέα Εταιρεία"}
-      >
-        <form action={handleSubmit(editing?.id ?? null)} className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Επωνυμία *"><Input name="name" defaultValue={editing?.name ?? ""} required autoFocus /></Field>
-            <Field label="Νομική Επωνυμία"><Input name="legalName" defaultValue={editing?.legalName ?? ""} /></Field>
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <Field label="ΑΦΜ"><Input name="vatNumber" defaultValue={editing?.vatNumber ?? ""} /></Field>
-            <Field label="ΔΟΥ"><Input name="taxOffice" defaultValue={editing?.taxOffice ?? ""} /></Field>
-            <Field label="ΓΕΜΗ"><Input name="registryNo" defaultValue={editing?.registryNo ?? ""} /></Field>
-          </div>
-          <Field label="Σχέση (πολλαπλή επιλογή)">
-            <div className="flex gap-3 flex-wrap py-1">
-              {RELATIONSHIPS.map((r) => (
-                <label key={r.value} className="flex items-center gap-1.5 text-sm cursor-pointer">
-                  <input
-                    type="checkbox"
-                    name="relationship"
-                    value={r.value}
-                    defaultChecked={editing?.relationships.includes(r.value) ?? false}
-                  /> {r.label}
-                </label>
-              ))}
-            </div>
-          </Field>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Email"><Input type="email" name="email" defaultValue={editing?.email ?? ""} /></Field>
-            <Field label="Τηλέφωνο"><Input name="phone" defaultValue={editing?.phone ?? ""} /></Field>
-          </div>
-          <Field label="Website"><Input name="website" defaultValue={editing?.website ?? ""} /></Field>
-          <Field label="Διεύθυνση"><Input name="addressLine1" defaultValue={editing?.addressLine1 ?? ""} /></Field>
-          <div className="grid grid-cols-3 gap-3">
-            <Field label="Πόλη"><Input name="city" defaultValue={editing?.city ?? ""} /></Field>
-            <Field label="ΤΚ"><Input name="postalCode" defaultValue={editing?.postalCode ?? ""} /></Field>
-            <Field label="Χώρα"><Input name="country" defaultValue={editing?.country ?? "Ελλάδα"} /></Field>
-          </div>
-          <div className="border-t border-border pt-3">
-            <p className="text-xs font-semibold text-muted-foreground mb-2">Υπεύθυνος Επικοινωνίας</p>
-            <div className="grid grid-cols-3 gap-3">
-              <Field label="Όνομα"><Input name="contactName" defaultValue={editing?.contactName ?? ""} /></Field>
-              <Field label="Email"><Input type="email" name="contactEmail" defaultValue={editing?.contactEmail ?? ""} /></Field>
-              <Field label="Τηλέφωνο"><Input name="contactPhone" defaultValue={editing?.contactPhone ?? ""} /></Field>
-            </div>
-          </div>
-          <Field label="Σημειώσεις">
-            <textarea name="notes" defaultValue={editing?.notes ?? ""} rows={2}
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm" />
-          </Field>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" name="isActive" defaultChecked={editing?.isActive ?? true} />
-            Ενεργή συνεργασία
-          </label>
-          <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="outline" onClick={() => { setCreating(false); setEditing(null); }}>Ακύρωση</Button>
-            <Button type="submit" disabled={isPending}>Αποθήκευση</Button>
-          </div>
-        </form>
-      </Modal>
+      {(creating || editing !== null) && (
+        <CompanyModal
+          editing={editing}
+          onClose={() => { setCreating(false); setEditing(null); }}
+          onSaved={() => { setCreating(false); setEditing(null); }}
+          onError={(msg) => setError(msg)}
+        />
+      )}
     </div>
+  );
+}
+
+function CompanyModal({
+  editing,
+  onClose,
+  onSaved,
+  onError,
+}: {
+  editing: Company | null;
+  onClose: () => void;
+  onSaved: () => void;
+  onError: (msg: string) => void;
+}) {
+  const [form, setForm] = useState(() => emptyForm(editing));
+  const [vatInput, setVatInput] = useState(editing?.vatNumber ?? "");
+  const [vatLoading, setVatLoading] = useState(false);
+  const [vatError, setVatError] = useState<string | null>(null);
+  const [vatInfo, setVatInfo] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    setForm((prev) => ({ ...prev, [key]: e.target.value }));
+
+  const toggleRel = (val: string) =>
+    setForm((prev) => ({
+      ...prev,
+      relationships: prev.relationships.includes(val)
+        ? prev.relationships.filter((r) => r !== val)
+        : [...prev.relationships, val],
+    }));
+
+  async function lookupVat() {
+    const afm = vatInput.trim();
+    if (!/^\d{9}$/.test(afm)) { setVatError("Εισάγετε 9 ψηφία ΑΦΜ"); return; }
+    setVatLoading(true);
+    setVatError(null);
+    setVatInfo(null);
+    try {
+      const res = await fetch("/api/admin/vat-lookup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ afm }),
+      });
+      const data: VatData & { error?: string } = await res.json();
+      if (!res.ok) { setVatError(data.error ?? "Σφάλμα"); return; }
+
+      setForm((prev) => ({
+        ...prev,
+        vatNumber: data.afm,
+        name: data.name || prev.name,
+        legalName: data.legalName || prev.legalName,
+        taxOffice: data.taxOffice || prev.taxOffice,
+        addressLine1: data.addressLine1 || prev.addressLine1,
+        postalCode: data.postalCode || prev.postalCode,
+        city: data.city || prev.city,
+        country: data.country || prev.country,
+        notes: [
+          prev.notes,
+          data.legalStatus ? `Νομική μορφή: ${data.legalStatus}` : "",
+          data.registDate ? `Ημ. εγγραφής: ${data.registDate}` : "",
+        ].filter(Boolean).join("\n").trim(),
+      }));
+      setVatInput(data.afm);
+      setVatInfo(`${data.name} · ${data.legalStatus}${!data.isActive ? " · ⚠ ΑΝΕΝΕΡΓΟΣ ΑΦΜ" : ""}`);
+    } catch (e: any) {
+      setVatError(e.message);
+    } finally {
+      setVatLoading(false);
+    }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.name.trim()) { setFormError("Η επωνυμία είναι υποχρεωτική"); return; }
+    const fd = new FormData();
+    Object.entries(form).forEach(([k, v]) => {
+      if (k === "relationships") {
+        (v as string[]).forEach((r) => fd.append("relationship", r));
+      } else {
+        fd.append(k, String(v));
+      }
+    });
+    setFormError(null);
+    startTransition(async () => {
+      try {
+        if (editing) await updateCompany(editing.id, fd);
+        else await createCompany(fd);
+        onSaved();
+      } catch (e: any) {
+        setFormError(e.message ?? "Σφάλμα");
+        onError(e.message ?? "Σφάλμα");
+      }
+    });
+  };
+
+  return (
+    <Modal open onClose={onClose} title={editing ? "Επεξεργασία Εταιρείας" : "Νέα Εταιρεία"} size="lg">
+      <form onSubmit={handleSubmit} className="space-y-3">
+
+        {/* VAT Lookup */}
+        <div className="rounded-sm p-3 space-y-2" style={{ background: "rgba(0,120,212,0.05)", border: "1px solid rgba(0,120,212,0.18)" }}>
+          <p className="text-xs font-semibold" style={{ color: "#0078d4" }}>Αυτόματη συμπλήρωση από ΑΦΜ (ΓΓΔΕ)</p>
+          <div className="flex gap-2">
+            <Input
+              value={vatInput}
+              onChange={(e) => setVatInput(e.target.value.replace(/\D/g, "").slice(0, 9))}
+              placeholder="9-ψήφιο ΑΦΜ"
+              maxLength={9}
+              className="w-40 font-mono"
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); lookupVat(); } }}
+            />
+            <Button
+              type="button"
+              onClick={lookupVat}
+              disabled={vatLoading || vatInput.length !== 9}
+              style={{ background: "#0078d4", color: "white", minWidth: 120 }}
+            >
+              {vatLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <><MdSearch size={15} className="mr-1" />Αναζήτηση</>}
+            </Button>
+          </div>
+          {vatError && <p className="text-xs text-destructive">{vatError}</p>}
+          {vatInfo && <p className="text-xs font-medium" style={{ color: "#107c10" }}>✓ {vatInfo}</p>}
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Επωνυμία / Εμπορικό Τίτλο *"><Input value={form.name} onChange={set("name")} required autoFocus /></Field>
+          <Field label="Πλήρης Νομική Επωνυμία"><Input value={form.legalName} onChange={set("legalName")} /></Field>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <Field label="ΑΦΜ"><Input value={form.vatNumber} onChange={set("vatNumber")} /></Field>
+          <Field label="ΔΟΥ"><Input value={form.taxOffice} onChange={set("taxOffice")} /></Field>
+          <Field label="ΓΕΜΗ"><Input value={form.registryNo} onChange={set("registryNo")} /></Field>
+        </div>
+        <Field label="Σχέση (πολλαπλή επιλογή)">
+          <div className="flex gap-3 flex-wrap py-1">
+            {RELATIONSHIPS.map((r) => (
+              <label key={r.value} className="flex items-center gap-1.5 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.relationships.includes(r.value)}
+                  onChange={() => toggleRel(r.value)}
+                /> {r.label}
+              </label>
+            ))}
+          </div>
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Email"><Input type="email" value={form.email} onChange={set("email")} /></Field>
+          <Field label="Τηλέφωνο"><Input value={form.phone} onChange={set("phone")} /></Field>
+        </div>
+        <Field label="Website"><Input value={form.website} onChange={set("website")} /></Field>
+        <Field label="Διεύθυνση"><Input value={form.addressLine1} onChange={set("addressLine1")} /></Field>
+        <div className="grid grid-cols-3 gap-3">
+          <Field label="Πόλη"><Input value={form.city} onChange={set("city")} /></Field>
+          <Field label="ΤΚ"><Input value={form.postalCode} onChange={set("postalCode")} /></Field>
+          <Field label="Χώρα"><Input value={form.country} onChange={set("country")} /></Field>
+        </div>
+        <div className="border-t border-border pt-3">
+          <p className="text-xs font-semibold text-muted-foreground mb-2">Υπεύθυνος Επικοινωνίας</p>
+          <div className="grid grid-cols-3 gap-3">
+            <Field label="Όνομα"><Input value={form.contactName} onChange={set("contactName")} /></Field>
+            <Field label="Email"><Input type="email" value={form.contactEmail} onChange={set("contactEmail")} /></Field>
+            <Field label="Τηλέφωνο"><Input value={form.contactPhone} onChange={set("contactPhone")} /></Field>
+          </div>
+        </div>
+        <Field label="Σημειώσεις">
+          <textarea
+            value={form.notes}
+            onChange={(e) => setForm((prev) => ({ ...prev, notes: e.target.value }))}
+            rows={2}
+            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+          />
+        </Field>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={form.isActive}
+            onChange={(e) => setForm((prev) => ({ ...prev, isActive: e.target.checked }))}
+          />
+          Ενεργή συνεργασία
+        </label>
+
+        {formError && <p className="text-sm text-destructive">{formError}</p>}
+
+        <div className="flex justify-end gap-2 pt-2">
+          <Button type="button" variant="outline" onClick={onClose}>Ακύρωση</Button>
+          <Button type="submit" disabled={isPending}>Αποθήκευση</Button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 
