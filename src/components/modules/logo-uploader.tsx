@@ -7,6 +7,7 @@ import { MdCloudUpload, MdImage } from "react-icons/md";
 
 export function LogoUploader({ currentLogo }: { currentLogo: string | null }) {
   const [preview, setPreview] = useState<string | null>(currentLogo);
+  const [logoUrl, setLogoUrl] = useState<string | null>(currentLogo);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -29,6 +30,7 @@ export function LogoUploader({ currentLogo }: { currentLogo: string | null }) {
       fd.append("logo", file);
       const result = await uploadLogo(fd);
       setPreview(result.logo + "?t=" + Date.now());
+      setLogoUrl(result.logo);
       setSuccess(true);
     } catch (e: any) {
       setError(e.message ?? "Σφάλμα αποστολής");
@@ -78,6 +80,7 @@ export function LogoUploader({ currentLogo }: { currentLogo: string | null }) {
         </div>
       </div>
 
+      <input type="hidden" name="logo" value={logoUrl ?? ""} />
       <input
         ref={inputRef}
         type="file"
