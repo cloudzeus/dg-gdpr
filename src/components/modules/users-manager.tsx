@@ -1,14 +1,15 @@
 "use client";
 
-import { useState, useTransition, useMemo } from "react";
+import { useState, useTransition, useMemo, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/ui/modal";
 import { CommandBar, CommandBarButton, CommandBarSeparator } from "@/components/shared/command-bar";
-import { createUser, updateUser, deleteUser } from "@/actions/users-admin";
-import { Plus, Pencil, Trash2, Search, Lock, User as UserIcon } from "lucide-react";
+import { createUser, updateUser, deleteUser, importEntraUsers } from "@/actions/users-admin";
+import { Plus, Pencil, Trash2, Search, Lock, Download } from "lucide-react";
+import { MdMicrosoft } from "react-icons/md";
 
 type AppUser = {
   id: string;
@@ -57,6 +58,7 @@ export function UsersManager({
   const [creating, setCreating] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [entraOpen, setEntraOpen] = useState(false);
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase();
@@ -101,6 +103,8 @@ export function UsersManager({
       <div className="flex items-center justify-between gap-3">
         <CommandBar>
           <CommandBarButton icon={Plus} label="Νέος Χρήστης" variant="primary" onClick={() => setCreating(true)} />
+          <CommandBarSeparator />
+          <CommandBarButton icon={Download} label="Εισαγωγή από Office 365" onClick={() => setEntraOpen(true)} />
           <CommandBarSeparator />
           <div className="flex items-center gap-1.5 px-2">
             <Search className="h-3.5 w-3.5 text-muted-foreground" />
@@ -183,6 +187,13 @@ export function UsersManager({
         </CardContent>
       </Card>
 
+      <EntraImportModal
+        open={entraOpen}
+        onClose={() => setEntraOpen(false)}
+        existingEmails={users.map((u) => u.email?.toLowerCase() ?? "")}
+        roles={ROLES}
+      />
+
       <Modal
         open={creating || editing !== null}
         onClose={() => { setCreating(false); setEditing(null); }}
@@ -249,5 +260,247 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <label className="text-xs font-medium text-muted-foreground">{label}</label>
       {children}
     </div>
+  );
+}
+
+type EntraUser = { id: string; name: string | null; email: string; jobTitle: string | null; department: string | null };
+
+function EntraImportModal({
+  open,
+  onClose,
+  existingEmails,
+  roles,
+}: {
+  open: boolean;
+  onClose: () => void;
+  existingEmails: string[];
+  roles: Array<{ value: string; label: string }>;
+}) {
+  const [entraUsers, setEntraUsers] = useState<EntraUser[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [roleMap, setRoleMap] = useState<Record<string, string>>({});
+  const [searchQ, setSearchQ] = useState("");
+  const [isPending, startTransition] = useTransition();
+  const [result, setResult] = useState<{ imported: number; skipped: number } | null>(null);
+
+  const existingSet = useMemo(() => new Set(existingEmails), [existingEmails]);
+
+  async function fetchUsers() {
+    setLoading(true);
+    setFetchError(null);
+    setResult(null);
+    try {
+      const res = await fetch("/api/admin/entra-users");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Σφάλμα");
+      setEntraUsers(data.users ?? []);
+      // Pre-select all users not already in system
+      const newSet = new Set<string>();
+      for (const u of data.users ?? []) {
+        if (!existingSet.has(u.email.toLowerCase())) newSet.add(u.id);
+      }
+      setSelected(newSet);
+    } catch (e: any) {
+      setFetchError(e.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Fetch when modal opens
+  useEffect(() => {
+    if (open && entraUsers.length === 0 && !loading && !fetchError && !result) {
+      fetchUsers();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
+
+  const filtered = useMemo(() => {
+    const q = searchQ.toLowerCase();
+    if (!q) return entraUsers;
+    return entraUsers.filter(
+      (u) =>
+        (u.name ?? "").toLowerCase().includes(q) ||
+        u.email.toLowerCase().includes(q) ||
+        (u.department ?? "").toLowerCase().includes(q)
+    );
+  }, [entraUsers, searchQ]);
+
+  const toggle = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    const visibleNew = filtered.filter((u) => !existingSet.has(u.email.toLowerCase())).map((u) => u.id);
+    const allSelected = visibleNew.every((id) => selected.has(id));
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allSelected) visibleNew.forEach((id) => next.delete(id));
+      else visibleNew.forEach((id) => next.add(id));
+      return next;
+    });
+  };
+
+  function doImport() {
+    const toImport = entraUsers
+      .filter((u) => selected.has(u.id) && !existingSet.has(u.email.toLowerCase()))
+      .map((u) => ({ name: u.name, email: u.email, role: roleMap[u.id] ?? "USER" }));
+    if (toImport.length === 0) return;
+    startTransition(async () => {
+      try {
+        const res = await importEntraUsers(toImport);
+        setResult(res);
+        setSelected(new Set());
+      } catch (e: any) {
+        setFetchError(e.message);
+      }
+    });
+  }
+
+  function handleClose() {
+    setEntraUsers([]);
+    setSelected(new Set());
+    setRoleMap({});
+    setSearchQ("");
+    setFetchError(null);
+    setResult(null);
+    onClose();
+  }
+
+  return (
+    <Modal open={open} onClose={handleClose} title="Εισαγωγή Χρηστών από Office 365" size="xl">
+      <div className="space-y-3">
+        {/* Header info */}
+        <div className="flex items-center gap-2 rounded-sm px-3 py-2 text-sm" style={{ background: "rgba(0,120,212,0.07)", border: "1px solid rgba(0,120,212,0.2)" }}>
+          <MdMicrosoft size={16} style={{ color: "#0078d4", flexShrink: 0 }} />
+          <span style={{ color: "#0078d4" }}>Φόρτωση χρηστών από το Microsoft Entra ID του οργανισμού σας</span>
+        </div>
+
+        {/* Result banner */}
+        {result && (
+          <div className="rounded-sm px-3 py-2 text-sm" style={{ background: "rgba(16,124,16,0.08)", border: "1px solid rgba(16,124,16,0.25)", color: "#107c10" }}>
+            Εισήχθησαν <strong>{result.imported}</strong> χρήστες · Παραλείφθηκαν <strong>{result.skipped}</strong> (υπάρχουν ήδη)
+          </div>
+        )}
+
+        {fetchError && (
+          <p className="text-sm text-destructive">{fetchError}</p>
+        )}
+
+        {loading && (
+          <div className="py-10 text-center text-sm text-muted-foreground">Φόρτωση χρηστών από Entra ID…</div>
+        )}
+
+        {!loading && entraUsers.length > 0 && (
+          <>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 flex-1 rounded-md border border-border px-3 py-1.5">
+                <Search className="h-3.5 w-3.5 text-muted-foreground" />
+                <input
+                  value={searchQ}
+                  onChange={(e) => setSearchQ(e.target.value)}
+                  placeholder="Αναζήτηση χρηστών..."
+                  className="flex-1 bg-transparent text-sm outline-none"
+                />
+              </div>
+              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                {selected.size} επιλεγμένοι · {entraUsers.length} σύνολο
+              </span>
+            </div>
+
+            <div className="rounded-sm border border-border overflow-hidden" style={{ maxHeight: 380 }}>
+              <div className="overflow-y-auto" style={{ maxHeight: 380 }}>
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0" style={{ background: "#f3f2f1", zIndex: 1 }}>
+                    <tr className="border-b border-border text-xs uppercase text-muted-foreground">
+                      <th className="px-3 py-2 text-left w-8">
+                        <input type="checkbox" onChange={toggleAll}
+                          checked={filtered.filter((u) => !existingSet.has(u.email.toLowerCase())).length > 0 &&
+                            filtered.filter((u) => !existingSet.has(u.email.toLowerCase())).every((u) => selected.has(u.id))} />
+                      </th>
+                      <th className="px-3 py-2 text-left">Όνομα</th>
+                      <th className="px-3 py-2 text-left">Email</th>
+                      <th className="px-3 py-2 text-left">Τμήμα / Θέση</th>
+                      <th className="px-3 py-2 text-left">Ρόλος</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((u) => {
+                      const exists = existingSet.has(u.email.toLowerCase());
+                      const isSelected = selected.has(u.id);
+                      return (
+                        <tr key={u.id} className="border-b border-border" style={{ opacity: exists ? 0.45 : 1 }}>
+                          <td className="px-3 py-2">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              disabled={exists}
+                              onChange={() => toggle(u.id)}
+                            />
+                          </td>
+                          <td className="px-3 py-2 font-medium">
+                            <div className="flex items-center gap-1.5">
+                              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white" style={{ background: "#0078d4" }}>
+                                {(u.name ?? u.email)[0]?.toUpperCase()}
+                              </div>
+                              <span>{u.name ?? "—"}</span>
+                              {exists && <Badge variant="secondary" className="text-[10px] py-0">ήδη υπάρχει</Badge>}
+                            </div>
+                          </td>
+                          <td className="px-3 py-2 text-xs text-muted-foreground">{u.email}</td>
+                          <td className="px-3 py-2 text-xs">
+                            {u.jobTitle && <div>{u.jobTitle}</div>}
+                            {u.department && <div className="text-muted-foreground">{u.department}</div>}
+                          </td>
+                          <td className="px-3 py-2">
+                            {!exists && (
+                              <select
+                                value={roleMap[u.id] ?? "USER"}
+                                onChange={(e) => setRoleMap((prev) => ({ ...prev, [u.id]: e.target.value }))}
+                                className="rounded border border-border bg-background px-2 py-1 text-xs"
+                              >
+                                {roles.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+                              </select>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="flex justify-between items-center pt-1">
+              <Button variant="outline" size="sm" onClick={fetchUsers} disabled={loading}>
+                Ανανέωση
+              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={handleClose}>Κλείσιμο</Button>
+                <Button
+                  onClick={doImport}
+                  disabled={isPending || selected.size === 0}
+                  style={{ background: "#0078d4", color: "white" }}
+                >
+                  {isPending ? "Εισαγωγή…" : `Εισαγωγή ${selected.size} χρηστών`}
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
+
+        {!loading && entraUsers.length === 0 && !fetchError && (
+          <div className="py-10 text-center text-sm text-muted-foreground">
+            Δεν βρέθηκαν χρήστες στο Entra ID.
+          </div>
+        )}
+      </div>
+    </Modal>
   );
 }

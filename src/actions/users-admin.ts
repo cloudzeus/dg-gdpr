@@ -83,6 +83,32 @@ export async function updateUser(id: string, formData: FormData) {
   return { success: true };
 }
 
+export async function importEntraUsers(
+  users: Array<{ name: string | null; email: string; role?: string }>
+) {
+  await requireAdmin();
+  let imported = 0;
+  let skipped = 0;
+  for (const u of users) {
+    const email = u.email.trim().toLowerCase();
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) { skipped++; continue; }
+    await prisma.user.create({
+      data: {
+        email,
+        name: u.name ?? null,
+        role: (u.role as UserRole) ?? "USER",
+        isActive: true,
+        password: null,
+      },
+    });
+    imported++;
+  }
+  await logAction({ action: "CREATE", entity: "User", entityId: "bulk-entra", details: { imported, skipped } });
+  revalidatePath("/admin/users");
+  return { imported, skipped };
+}
+
 export async function deleteUser(id: string) {
   const adminId = await requireAdmin();
   if (adminId === id) throw new Error("Δεν μπορείτε να διαγράψετε τον εαυτό σας");
