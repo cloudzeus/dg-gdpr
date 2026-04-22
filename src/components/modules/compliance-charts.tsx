@@ -6,7 +6,7 @@ import {
 } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-interface ChartItem { label: string; score: number; fill: string }
+interface ChartItem { label: string; score: number | null; fill: string }
 interface RiskItem { label: string; value: number; fill: string }
 
 export function ComplianceCharts({
@@ -16,7 +16,7 @@ export function ComplianceCharts({
   chartData: ChartItem[];
   riskData: RiskItem[];
 }) {
-  const barData = chartData.map((d) => ({ name: d.label, Βαθμολογία: d.score, fill: d.fill }));
+  const barData = chartData.map((d) => ({ name: d.label, Βαθμολογία: d.score ?? 0, fill: d.fill, noData: d.score === null }));
   const pieData = riskData.filter((d) => d.value > 0);
 
   return (
@@ -33,7 +33,7 @@ export function ComplianceCharts({
               <XAxis dataKey="name" tick={{ fontSize: 12 }} />
               <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} unit="%" />
               <Tooltip
-                formatter={(v) => [`${v}%`, "Βαθμολογία"]}
+                formatter={(v, _name, props) => [props.payload?.noData ? "Χωρίς δεδομένα" : `${v}%`, "Βαθμολογία"]}
                 contentStyle={{ borderRadius: 8, fontSize: 12 }}
               />
               <Bar dataKey="Βαθμολογία" radius={[4, 4, 0, 0]}>

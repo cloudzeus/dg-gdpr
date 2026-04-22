@@ -25,9 +25,10 @@ export default async function ReportsPage() {
     prisma.project.findMany({ select: { riskLevel: true, name: true } }),
   ]);
 
+  // Scores — null means "no data yet" (excluded from overall average)
   const devScore = devChecklists.length
     ? devChecklists.reduce((a, c) => a + c.score, 0) / devChecklists.length
-    : 0;
+    : null;
 
   const voipScore = voipConfigs.length
     ? voipConfigs.reduce((a, c) => {
@@ -37,24 +38,38 @@ export default async function ReportsPage() {
         if (!c.recordingEnabled || c.legalBasis) s += 20;
         return a + s;
       }, 0) / voipConfigs.length
-    : 0;
+    : null;
 
   const trainingScore = trainingResults.length
     ? (trainingResults.filter((r) => r.passed).length / trainingResults.length) * 100
-    : 0;
+    : null;
 
+  // Partial credit per DPIA status so DRAFT/IN_REVIEW are not penalised as 0
   const dpiaScore = dpiaReports.length
-    ? (dpiaReports.filter((r) => r.status === "APPROVED").length / dpiaReports.length) * 100
-    : 0;
+    ? dpiaReports.reduce((acc, r) => {
+        const pts =
+          r.status === "APPROVED" ? 100 :
+          r.status === "IN_REVIEW" ? 75 :
+          r.status === "DRAFT" ? 50 :
+          r.status === "REQUIRES_CONSULTATION" ? 40 : 0;
+        return acc + pts;
+      }, 0) / dpiaReports.length
+    : null;
 
-  const overallScore = (devScore + voipScore + trainingScore + dpiaScore) / 4;
+  // Only average categories that have at least one record
+  const activeScores = [devScore, voipScore, trainingScore, dpiaScore].filter(
+    (s): s is number => s !== null
+  );
+  const overallScore = activeScores.length
+    ? activeScores.reduce((a, b) => a + b, 0) / activeScores.length
+    : 0;
   const grade = scoreToGrade(overallScore);
 
   const chartData = [
-    { label: "Ανάπτυξη", score: Math.round(devScore), fill: "#0078d4" },
-    { label: "VoIP", score: Math.round(voipScore), fill: "#8b5cf6" },
-    { label: "Εκπαίδευση", score: Math.round(trainingScore), fill: "#10b981" },
-    { label: "DPIA", score: Math.round(dpiaScore), fill: "#f59e0b" },
+    { label: "Ανάπτυξη", score: devScore !== null ? Math.round(devScore) : null, fill: "#0078d4" },
+    { label: "VoIP", score: voipScore !== null ? Math.round(voipScore) : null, fill: "#8b5cf6" },
+    { label: "Εκπαίδευση", score: trainingScore !== null ? Math.round(trainingScore) : null, fill: "#10b981" },
+    { label: "DPIA", score: dpiaScore !== null ? Math.round(dpiaScore) : null, fill: "#f59e0b" },
   ];
 
   const riskDistribution = [
@@ -80,7 +95,7 @@ export default async function ReportsPage() {
                   Βάσει ολοκληρωμένων αξιολογήσεων σε όλους τους τομείς
                 </p>
               </div>
-              <PdfExportButton score={Math.round(overallScore)} grade={grade.label} chartData={chartData} />
+              <PdfExportButton score={Math.round(overallScore)} grade={grade.label} chartData={chartData.map((d) => ({ ...d, score: d.score ?? 0 }))} />
             </div>
 
             {/* Overall score card */}
@@ -95,8 +110,13 @@ export default async function ReportsPage() {
                 <div className="grid grid-cols-4 gap-6 flex-1">
                   {chartData.map((d) => (
                     <div key={d.label} className="text-center">
-                      <p className="text-2xl font-bold" style={{ color: d.fill }}>{d.score}%</p>
+                      {d.score !== null ? (
+                        <p className="text-2xl font-bold" style={{ color: d.fill }}>{d.score}%</p>
+                      ) : (
+                        <p className="text-xl font-bold text-muted-foreground">—</p>
+                      )}
                       <p className="text-xs text-muted-foreground mt-0.5">{d.label}</p>
+                      {d.score === null && <p className="text-[10px] text-muted-foreground">Χωρίς δεδομένα</p>}
                     </div>
                   ))}
                 </div>
