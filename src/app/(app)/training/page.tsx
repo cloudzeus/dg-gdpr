@@ -9,11 +9,14 @@ import { Progress } from "@/components/ui/progress";
 import { GraduationCap, BookOpen, CheckCircle2, XCircle, Clock, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { formatDate } from "@/lib/utils";
+import { TrainingInviteButton } from "@/components/modules/training-invite-button";
 
 export default async function TrainingPage() {
   const session = await auth();
+  const role = (session?.user as any)?.role as string | undefined;
+  const isAdmin = role === "ADMIN" || role === "DPO";
 
-  const [modules, myResults] = await Promise.all([
+  const [modules, myResults, departments, users] = await Promise.all([
     prisma.trainingModule.findMany({
       where: { isActive: true },
       include: {
@@ -30,6 +33,16 @@ export default async function TrainingPage() {
       orderBy: { completedAt: "desc" },
       include: { module: { select: { title: true } } },
     }),
+    isAdmin
+      ? prisma.department.findMany({ select: { id: true, name: true }, orderBy: { name: "asc" } })
+      : Promise.resolve([]),
+    isAdmin
+      ? prisma.user.findMany({
+          where: { isActive: true },
+          select: { id: true, name: true, email: true, departmentId: true },
+          orderBy: { name: "asc" },
+        })
+      : Promise.resolve([]),
   ]);
 
   const passCount = myResults.filter((r) => r.passed).length;
@@ -39,8 +52,8 @@ export default async function TrainingPage() {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <Topbar userName={session?.user?.name} userRole={(session?.user as any)?.role} pageTitle="Εκπαίδευση GDPR" />
-      <main className="flex-1 overflow-y-auto p-6">
-        <div className="flex gap-6">
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+        <div className="flex flex-col gap-6 lg:flex-row">
           <div className="flex-1 space-y-6">
             {/* Progress overview */}
             <Card className="bg-gradient-to-r from-primary/10 to-primary/5 border-primary/20">
@@ -123,15 +136,26 @@ export default async function TrainingPage() {
                               <Progress value={score} />
                             </>
                           )}
-                          <Link href={`/training/${mod.id}`}>
-                            <Button
-                              variant={lastResult && !passed ? "default" : "outline"}
-                              size="sm"
-                              className="w-full mt-1"
-                            >
-                              {!lastResult ? "Έναρξη Εκπαίδευσης" : passed ? "Επανάληψη" : "Επανεκπαίδευση"}
-                            </Button>
-                          </Link>
+                          <div className="flex gap-2 mt-1">
+                            <Link href={`/training/${mod.id}`} className="flex-1">
+                              <Button
+                                variant={lastResult && !passed ? "default" : "outline"}
+                                size="sm"
+                                className="w-full"
+                              >
+                                {!lastResult ? "Έναρξη Εκπαίδευσης" : passed ? "Επανάληψη" : "Επανεκπαίδευση"}
+                              </Button>
+                            </Link>
+                            {isAdmin && (
+                              <TrainingInviteButton
+                                moduleId={mod.id}
+                                moduleTitle={mod.title}
+                                moduleDescription={mod.description}
+                                departments={departments}
+                                users={users}
+                              />
+                            )}
+                          </div>
                           {!passed && lastResult && (
                             <div className="flex items-center gap-1.5 text-xs text-orange-600 bg-orange-50 dark:bg-orange-950/20 rounded-md p-2">
                               <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
@@ -153,6 +177,7 @@ export default async function TrainingPage() {
                   <CardTitle className="text-base">Ιστορικό Εξετάσεων</CardTitle>
                 </CardHeader>
                 <CardContent>
+                  <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-border text-left text-xs text-muted-foreground">
@@ -179,6 +204,7 @@ export default async function TrainingPage() {
                       ))}
                     </tbody>
                   </table>
+                  </div>
                 </CardContent>
               </Card>
             )}

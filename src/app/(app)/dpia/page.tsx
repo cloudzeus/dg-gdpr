@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DpiaPageActions, DpaPageActions, DpaWordExportButton } from "@/components/modules/dpia-page-actions";
 import { DeleteDpiaButton, DeleteDpaButton } from "@/components/modules/delete-dpia-dpa-button";
-import { CheckCircle2, Clock, AlertTriangle, FileText, Download } from "lucide-react";
+import { CheckCircle2, Clock, AlertTriangle, FileText, MapPin, Layers } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import Link from "next/link";
 
@@ -25,10 +25,43 @@ const dpaStatusLabels: Record<string, string> = {
   TERMINATED: "Τερματισμένη",
 };
 
+function DpiaStatusIcon({ status }: { status: string }) {
+  if (status === "APPROVED") return <CheckCircle2 className="h-5 w-5 text-green-500" />;
+  if (status === "REQUIRES_CONSULTATION") return <AlertTriangle className="h-5 w-5 text-orange-500" />;
+  return <Clock className="h-5 w-5 text-muted-foreground" />;
+}
+
+function DpiaRow({ d }: { d: { id: string; title: string; status: string; createdAt: Date; project?: { name: string } | null; user: { name: string | null } } }) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3">
+      <div className="flex items-start gap-3 min-w-0 flex-1">
+        <div className="mt-0.5">
+          <DpiaStatusIcon status={d.status} />
+        </div>
+        <div className="min-w-0">
+          <p className="font-medium truncate">{d.title}</p>
+          <p className="text-xs text-muted-foreground">
+            {d.user.name} · {formatDate(d.createdAt)}
+          </p>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 shrink-0 flex-wrap">
+        <Badge variant={d.status === "APPROVED" ? "success" : d.status === "REQUIRES_CONSULTATION" ? "destructive" : "secondary"}>
+          {dpiaStatusLabels[d.status]}
+        </Badge>
+        <Link href={`/dpia/${d.id}`}>
+          <Button variant="outline" size="sm">Προβολή</Button>
+        </Link>
+        <DeleteDpiaButton id={d.id} />
+      </div>
+    </div>
+  );
+}
+
 export default async function DpiaPage() {
   const session = await auth();
 
-  const [dpiaReports, dpaContracts, projects] = await Promise.all([
+  const [allDpias, dpaContracts, projects] = await Promise.all([
     prisma.dpiaReport.findMany({
       orderBy: { createdAt: "desc" },
       include: { project: { select: { name: true } }, user: { select: { name: true } } },
@@ -46,6 +79,10 @@ export default async function DpiaPage() {
 
   const projectsData = projects.map((p) => ({ id: p.id, name: p.name, description: p.description }));
 
+  // Split DPIAs: internal (from mapper, no project) vs external (project-linked)
+  const internalDpias = allDpias.filter((d) => !d.projectId);
+  const projectDpias = allDpias.filter((d) => !!d.projectId);
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <Topbar
@@ -53,63 +90,83 @@ export default async function DpiaPage() {
         userRole={(session?.user as any)?.role}
         pageTitle="DPIA & Συμβάσεις DPA"
       />
-      <main className="flex-1 overflow-y-auto p-6">
-        <div className="flex gap-6">
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+        <div className="flex flex-col gap-6 lg:flex-row">
           <div className="flex-1 space-y-6 min-w-0">
 
-            {/* DPIA section */}
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold flex items-center gap-2">
-                <FileText className="h-5 w-5 text-primary" /> Εκτιμήσεις Αντικτύπου (DPIA)
-              </h2>
-              <DpiaPageActions projects={projectsData} />
+            {/* ── Internal DPIAs (from Data Flow Mapper) ── */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <MapPin className="h-5 w-5 text-primary" /> DPIA Εσωτερικών Ροών
+                </h2>
+                <span className="text-xs text-muted-foreground">Δημιουργήθηκαν αυτόματα από τη Χαρτογράφηση Ροών Δεδομένων</span>
+              </div>
+
+              {internalDpias.length === 0 ? (
+                <Card>
+                  <CardContent className="py-8 text-center text-muted-foreground text-sm">
+                    <MapPin className="h-8 w-8 mx-auto mb-2 opacity-30" />
+                    <p>Δεν υπάρχουν εσωτερικές DPIA ακόμη.</p>
+                    <p className="text-xs mt-1">Μεταβείτε στη <Link href="/mapper" className="text-primary underline">Χαρτογράφηση Ροών</Link> και πατήστε «Δημιουργία DPIA (AI)» για κάθε κατηγορία υψηλού κινδύνου.</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-3">
+                  {internalDpias.map((d) => <DpiaRow key={d.id} d={d} />)}
+                </div>
+              )}
             </div>
 
-            {dpiaReports.length === 0 ? (
-              <Card>
-                <CardContent className="py-10 text-center text-muted-foreground text-sm">
-                  Δεν υπάρχουν DPIA. Δημιουργήστε μία για έργα υψηλού κινδύνου.
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-3">
-                {dpiaReports.map((d) => (
-                  <div
-                    key={d.id}
-                    className="flex items-center justify-between gap-4 rounded-xl border border-border bg-card px-4 py-3"
-                  >
-                    <div className="flex items-start gap-3 min-w-0">
-                      <div className="mt-0.5">
-                        {d.status === "APPROVED" ? (
-                          <CheckCircle2 className="h-5 w-5 text-green-500" />
-                        ) : d.status === "REQUIRES_CONSULTATION" ? (
-                          <AlertTriangle className="h-5 w-5 text-orange-500" />
-                        ) : (
-                          <Clock className="h-5 w-5 text-muted-foreground" />
-                        )}
-                      </div>
-                      <div className="min-w-0">
-                        <p className="font-medium truncate">{d.title}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {d.project.name} · {d.user.name} · {formatDate(d.createdAt)}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      <Badge variant={d.status === "APPROVED" ? "success" : d.status === "REQUIRES_CONSULTATION" ? "destructive" : "secondary"}>
-                        {dpiaStatusLabels[d.status]}
-                      </Badge>
-                      <Link href={`/dpia/${d.id}`}>
-                        <Button variant="outline" size="sm">Προβολή</Button>
-                      </Link>
-                      <DeleteDpiaButton id={d.id} />
-                    </div>
-                  </div>
-                ))}
+            {/* ── Project-linked DPIAs ── */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <Layers className="h-5 w-5 text-primary" /> DPIA ανά Έργο
+                </h2>
+                <DpiaPageActions projects={projectsData} />
               </div>
-            )}
 
-            {/* DPA Contracts section */}
+              {projectDpias.length === 0 ? (
+                <Card>
+                  <CardContent className="py-8 text-center text-muted-foreground text-sm">
+                    Δεν υπάρχουν DPIA συνδεδεμένες με έργα. Δημιουργήστε μία για έργα υψηλού κινδύνου.
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="space-y-3">
+                  {projectDpias.map((d) => (
+                    <div
+                      key={d.id}
+                      className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3"
+                    >
+                      <div className="flex items-start gap-3 min-w-0 flex-1">
+                        <div className="mt-0.5">
+                          <DpiaStatusIcon status={d.status} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="font-medium truncate">{d.title}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {d.project?.name} · {d.user.name} · {formatDate(d.createdAt)}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                        <Badge variant={d.status === "APPROVED" ? "success" : d.status === "REQUIRES_CONSULTATION" ? "destructive" : "secondary"}>
+                          {dpiaStatusLabels[d.status]}
+                        </Badge>
+                        <Link href={`/dpia/${d.id}`}>
+                          <Button variant="outline" size="sm">Προβολή</Button>
+                        </Link>
+                        <DeleteDpiaButton id={d.id} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* ── DPA Contracts ── */}
             <div className="flex items-center justify-between pt-2">
               <h2 className="text-xl font-bold">Συμβάσεις DPA (Άρθρο 28)</h2>
               <DpaPageActions projects={projectsData} />
@@ -126,15 +183,15 @@ export default async function DpiaPage() {
                 {dpaContracts.map((c) => (
                   <div
                     key={c.id}
-                    className="flex items-center justify-between gap-4 rounded-xl border border-border bg-card px-4 py-3"
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3"
                   >
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <p className="font-medium truncate">{c.title}</p>
                       <p className="text-xs text-muted-foreground">
                         {c.processorName} → {c.controllerName} · {c.project.name}
                       </p>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-2 shrink-0 flex-wrap">
                       <Badge variant={c.status === "SIGNED" ? "success" : c.status === "EXPIRED" ? "destructive" : "warning"}>
                         {dpaStatusLabels[c.status]}
                       </Badge>

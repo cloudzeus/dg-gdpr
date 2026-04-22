@@ -67,8 +67,8 @@ export default async function VoipDetailPage({ params }: { params: Promise<{ id:
         userRole={(session?.user as any)?.role}
         pageTitle={`VoIP — ${cfg.providerName}`}
       />
-      <main className="flex-1 overflow-y-auto p-6">
-        <div className="flex gap-6">
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+        <div className="flex flex-col gap-6 lg:flex-row">
           <div className="flex-1 space-y-6 min-w-0">
 
             {/* Back + header */}
@@ -90,7 +90,7 @@ export default async function VoipDetailPage({ params }: { params: Promise<{ id:
             </div>
 
             {/* DPIA pending alert */}
-            <div className="rounded-xl border border-orange-200 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-800 p-4 flex items-start gap-3">
+            <div className="rounded-xl border border-orange-200 bg-orange-50 dark:bg-orange-950/20 dark:border-orange-800 p-4 flex flex-wrap items-start gap-3">
               <AlertTriangle className="h-5 w-5 text-orange-500 shrink-0 mt-0.5" />
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-orange-700 dark:text-orange-400">Εκκρεμεί DPIA για Ηχογράφηση VoIP</p>
@@ -109,7 +109,7 @@ export default async function VoipDetailPage({ params }: { params: Promise<{ id:
             </div>
 
             {/* Config details */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <Card>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-sm">Διαμόρφωση Ηχογράφησης</CardTitle>
@@ -178,6 +178,7 @@ export default async function VoipDetailPage({ params }: { params: Promise<{ id:
                 {cfg.callLogs.length === 0 ? (
                   <p className="px-4 py-6 text-center text-sm text-muted-foreground">Δεν υπάρχουν καταγεγραμμένες κλήσεις</p>
                 ) : (
+                  <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-border bg-secondary/40 text-xs uppercase text-muted-foreground">
@@ -214,6 +215,7 @@ export default async function VoipDetailPage({ params }: { params: Promise<{ id:
                       ))}
                     </tbody>
                   </table>
+                  </div>
                 )}
               </CardContent>
             </Card>

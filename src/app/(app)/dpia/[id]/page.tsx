@@ -5,21 +5,13 @@ import { Topbar } from "@/components/layout/topbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
-  CheckCircle2,
-  XCircle,
-  AlertTriangle,
-  Clock,
-  Shield,
-  FileText,
-  Download,
-  ArrowLeft,
-  User,
-  Calendar,
-  Layers,
+  CheckCircle2, XCircle, AlertTriangle, Clock, Shield,
+  FileText, Download, ArrowLeft, User, Calendar, Layers, RefreshCw,
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import Link from "next/link";
 import { DpiaDocumentActions } from "@/components/modules/dpia-document-actions";
+import { DpiaEditForm } from "@/components/modules/dpia-edit-form";
 
 const STATUS_LABELS: Record<string, string> = {
   DRAFT: "Προσχέδιο",
@@ -60,10 +52,10 @@ export default async function DpiaDetailPage({ params }: { params: Promise<{ id:
         userRole={(session?.user as any)?.role}
         pageTitle={report.title}
       />
-      <main className="flex-1 overflow-y-auto p-6">
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6">
         <div className="max-w-4xl mx-auto space-y-6">
 
-          {/* Back + header */}
+          {/* Back + export */}
           <div className="flex items-center justify-between gap-4">
             <Link href="/dpia" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
               <ArrowLeft className="h-4 w-4" /> Πίσω στη λίστα
@@ -83,17 +75,14 @@ export default async function DpiaDetailPage({ params }: { params: Promise<{ id:
             <CardContent className="pt-5 pb-4">
               <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div className="flex items-start gap-3">
-                  <div
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg mt-0.5"
-                    style={{ background: "rgba(0,120,212,0.1)" }}
-                  >
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg mt-0.5" style={{ background: "rgba(0,120,212,0.1)" }}>
                     <FileText className="h-5 w-5" style={{ color: "#0078d4" }} />
                   </div>
                   <div>
                     <h1 className="text-lg font-bold leading-tight">{report.title}</h1>
                     <div className="flex flex-wrap items-center gap-3 mt-1 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1">
-                        <Layers className="h-3.5 w-3.5" /> {report.project.name}
+                        <Layers className="h-3.5 w-3.5" /> {report.project?.name ?? "Χαρτογράφηση Ροών"}
                       </span>
                       <span className="flex items-center gap-1">
                         <User className="h-3.5 w-3.5" /> {report.user.name}
@@ -138,33 +127,21 @@ export default async function DpiaDetailPage({ params }: { params: Promise<{ id:
               {risks.length === 0 && mitigations.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Δεν έχουν καταχωρηθεί κίνδυνοι.</p>
               ) : (
-                <div className="overflow-hidden rounded-lg border border-border">
-                  {/* Table header */}
+                <div className="overflow-x-auto rounded-lg border border-border">
                   <div className="grid grid-cols-2">
-                    <div
-                      className="px-4 py-2.5 text-xs font-semibold"
-                      style={{ background: "rgba(202,80,16,0.08)", color: "#ca5010", borderRight: "1px solid rgb(var(--border))" }}
-                    >
+                    <div className="px-4 py-2.5 text-xs font-semibold" style={{ background: "rgba(202,80,16,0.08)", color: "#ca5010", borderRight: "1px solid rgb(var(--border))" }}>
                       Κίνδυνοι ({risks.length})
                     </div>
-                    <div
-                      className="px-4 py-2.5 text-xs font-semibold"
-                      style={{ background: "rgba(16,124,16,0.08)", color: "#107c10" }}
-                    >
+                    <div className="px-4 py-2.5 text-xs font-semibold" style={{ background: "rgba(16,124,16,0.08)", color: "#107c10" }}>
                       Μέτρα Αντιμετώπισης ({mitigations.length})
                     </div>
                   </div>
-                  {/* Rows */}
                   {Array.from({ length: maxItems }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="grid grid-cols-2 border-t border-border"
-                    >
+                    <div key={i} className="grid grid-cols-2 border-t border-border">
                       <div className="px-4 py-3 text-sm" style={{ borderRight: "1px solid rgb(var(--border))" }}>
                         {risks[i] ? (
                           <span className="flex items-start gap-2">
-                            <span className="mt-0.5 text-orange-500 shrink-0">▸</span>
-                            {risks[i]}
+                            <span className="mt-0.5 text-orange-500 shrink-0">▸</span>{risks[i]}
                           </span>
                         ) : (
                           <span className="text-muted-foreground text-xs">—</span>
@@ -173,8 +150,7 @@ export default async function DpiaDetailPage({ params }: { params: Promise<{ id:
                       <div className="px-4 py-3 text-sm">
                         {mitigations[i] ? (
                           <span className="flex items-start gap-2">
-                            <span className="mt-0.5 text-green-600 shrink-0">✓</span>
-                            {mitigations[i]}
+                            <span className="mt-0.5 text-green-600 shrink-0">✓</span>{mitigations[i]}
                           </span>
                         ) : (
                           <span className="text-muted-foreground text-xs">—</span>
@@ -184,12 +160,8 @@ export default async function DpiaDetailPage({ params }: { params: Promise<{ id:
                   ))}
                 </div>
               )}
-
               {risks.length > mitigations.length && (
-                <div
-                  className="mt-3 flex items-center gap-2 rounded-lg px-3 py-2 text-xs"
-                  style={{ background: "rgba(202,80,16,0.08)", color: "#ca5010", border: "1px solid rgba(202,80,16,0.2)" }}
-                >
+                <div className="mt-3 flex items-center gap-2 rounded-lg px-3 py-2 text-xs" style={{ background: "rgba(202,80,16,0.08)", color: "#ca5010", border: "1px solid rgba(202,80,16,0.2)" }}>
                   <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
                   {risks.length - mitigations.length} κίνδυνοι χωρίς αντίστοιχο μέτρο αντιμετώπισης
                 </div>
@@ -202,48 +174,31 @@ export default async function DpiaDetailPage({ params }: { params: Promise<{ id:
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                  <Shield className="h-4 w-4 text-primary" />
-                  Αναγκαιότητα & Αναλογικότητα
+                  <Shield className="h-4 w-4 text-primary" /> Αναγκαιότητα & Αναλογικότητα
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-3">
-                  {report.necessityAssessed ? (
-                    <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
-                  ) : (
-                    <XCircle className="h-5 w-5 text-orange-500 shrink-0" />
-                  )}
+                  {report.necessityAssessed ? <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" /> : <XCircle className="h-5 w-5 text-orange-500 shrink-0" />}
                   <div>
-                    <p className="text-sm font-medium">
-                      {report.necessityAssessed ? "Αξιολογήθηκε" : "Εκκρεμεί"}
-                    </p>
+                    <p className="text-sm font-medium">{report.necessityAssessed ? "Αξιολογήθηκε" : "Εκκρεμεί"}</p>
                     <p className="text-xs text-muted-foreground">Άρθρο 35 §7(b) GDPR</p>
                   </div>
                 </div>
               </CardContent>
             </Card>
-
             <Card>
               <CardHeader className="pb-3">
                 <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                  <User className="h-4 w-4 text-primary" />
-                  Υπεύθυνος Προστασίας Δεδομένων (ΥΠΔ)
+                  <User className="h-4 w-4 text-primary" /> Υπεύθυνος Προστασίας Δεδομένων (ΥΠΔ)
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-3">
-                  {report.dpoConsulted ? (
-                    <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
-                  ) : (
-                    <Clock className="h-5 w-5 text-muted-foreground shrink-0" />
-                  )}
+                  {report.dpoConsulted ? <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" /> : <Clock className="h-5 w-5 text-muted-foreground shrink-0" />}
                   <div>
                     <p className="text-sm font-medium">
-                      {report.dpoConsulted
-                        ? report.dpoName
-                          ? report.dpoName
-                          : "Διαβουλεύτηκε"
-                        : "Εκκρεμεί διαβούλευση"}
+                      {report.dpoConsulted ? (report.dpoName ?? "Διαβουλεύτηκε") : "Εκκρεμεί διαβούλευση"}
                     </p>
                     <p className="text-xs text-muted-foreground">Άρθρο 35 §2 GDPR</p>
                   </div>
@@ -252,17 +207,27 @@ export default async function DpiaDetailPage({ params }: { params: Promise<{ id:
             </Card>
           </div>
 
-          {/* Supervisory body */}
-          {report.supervisoryBody && (
-            <Card>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-sm font-semibold">Εποπτική Αρχή</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm">{report.supervisoryBody}</p>
-              </CardContent>
-            </Card>
-          )}
+          {/* Edit form */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <RefreshCw className="h-4 w-4 text-primary" /> Τροποποίηση DPIA
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <DpiaEditForm
+                id={id}
+                status={report.status}
+                processingPurpose={report.processingPurpose}
+                necessityAssessed={report.necessityAssessed}
+                dpoConsulted={report.dpoConsulted}
+                dpoName={report.dpoName}
+                supervisoryBody={report.supervisoryBody}
+                risks={risks}
+                mitigations={mitigations}
+              />
+            </CardContent>
+          </Card>
 
           {/* Signed doc upload + delete */}
           <DpiaDocumentActions id={report.id} type="dpia" signedDocUrl={report.signedDocUrl} />
@@ -271,8 +236,7 @@ export default async function DpiaDetailPage({ params }: { params: Promise<{ id:
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <Shield className="h-4 w-4 text-primary" />
-                Επισκόπηση Συμμόρφωσης GDPR Άρθρο 35
+                <Shield className="h-4 w-4 text-primary" /> Επισκόπηση Συμμόρφωσης GDPR Άρθρο 35
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -286,11 +250,7 @@ export default async function DpiaDetailPage({ params }: { params: Promise<{ id:
                   { label: "Διαβούλευση με ΥΠΔ", ok: report.dpoConsulted },
                 ].map(({ label, ok }) => (
                   <div key={label} className="flex items-center gap-2.5 text-sm">
-                    {ok ? (
-                      <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
-                    ) : (
-                      <XCircle className="h-4 w-4 text-orange-400 shrink-0" />
-                    )}
+                    {ok ? <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" /> : <XCircle className="h-4 w-4 text-orange-400 shrink-0" />}
                     <span className={ok ? "text-foreground" : "text-muted-foreground"}>{label}</span>
                   </div>
                 ))}

@@ -46,7 +46,7 @@ export default async function TrainingModulePage({
         userRole={(session?.user as any)?.role}
         pageTitle={mod.title}
       />
-      <main className="flex-1 overflow-y-auto p-6">
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6">
         <div className="max-w-2xl mx-auto space-y-6">
 
           <Link
@@ -155,14 +155,21 @@ export default async function TrainingModulePage({
           <TrainingQuiz
             moduleId={mod.id}
             passingScore={mod.passingScore}
-            questions={mod.questions.map((q) => ({
-              id: q.id,
-              question: q.question,
-              options: q.options as string[],
-              correctAnswer: q.correctAnswer,
-              explanation: q.explanation ?? "",
-              weight: q.weight,
-            }))}
+            questions={mod.questions.map((q) => {
+              const opts = Array.isArray(q.options)
+                ? (q.options as string[])
+                : typeof q.options === "string"
+                ? (JSON.parse(q.options) as string[])
+                : [];
+              return {
+                id: q.id,
+                question: q.question,
+                options: opts,
+                correctAnswer: q.correctAnswer,
+                explanation: q.explanation ?? "",
+                weight: q.weight,
+              };
+            })}
             userId={session!.user!.id!}
           />
         </div>

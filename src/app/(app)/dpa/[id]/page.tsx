@@ -62,7 +62,7 @@ export default async function DpaDetailPage({ params }: { params: Promise<{ id: 
         userRole={(session?.user as any)?.role}
         pageTitle={contract.title}
       />
-      <main className="flex-1 overflow-y-auto p-6">
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6">
         <div className="max-w-4xl mx-auto space-y-5">
 
           {/* Header row */}
@@ -205,7 +205,7 @@ export default async function DpaDetailPage({ params }: { params: Promise<{ id: 
               <form action={handleUpdate} className="space-y-4">
                 <input type="hidden" name="id" value={id} />
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                   <div className="space-y-1.5">
                     <label className="text-xs font-medium text-muted-foreground">Κατάσταση</label>
                     <Select name="status" defaultValue={contract.status}>

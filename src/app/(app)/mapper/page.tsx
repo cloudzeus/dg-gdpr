@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { Topbar } from "@/components/layout/topbar";
 import { LegalSidebar } from "@/components/shared/legal-sidebar";
 import { DepartmentFlows } from "@/components/modules/department-flows";
@@ -7,7 +8,13 @@ import { MdAccountTree, MdInfo } from "react-icons/md";
 
 export default async function MapperPage() {
   const session = await auth();
-  const departments = await getDepartmentFlows();
+  const [departments, dpias] = await Promise.all([
+    getDepartmentFlows(),
+    prisma.dpiaReport.findMany({
+      select: { id: true, title: true, status: true },
+      orderBy: { createdAt: "desc" },
+    }),
+  ]);
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -17,7 +24,7 @@ export default async function MapperPage() {
         pageTitle="Ροές Δεδομένων"
       />
       <main className="flex-1 overflow-y-auto p-5">
-        <div className="flex gap-5 min-h-full">
+        <div className="flex flex-col gap-5 min-h-full lg:flex-row">
           {/* Main content */}
           <div className="flex-1 space-y-4 min-w-0">
             {/* Page header */}
@@ -53,7 +60,7 @@ export default async function MapperPage() {
               </div>
             </div>
 
-            <DepartmentFlows departments={departments} />
+            <DepartmentFlows departments={departments} dpias={dpias} />
           </div>
 
           {/* Legal sidebar */}

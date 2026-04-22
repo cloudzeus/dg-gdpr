@@ -19,7 +19,7 @@ export function LegalSidebar({ title, summary, articles, tips, className }: Lega
   return (
     <aside
       className={cn(
-        "w-72 shrink-0 rounded-sm bg-card self-start sticky top-5 space-y-4 p-4",
+        "hidden lg:block w-72 shrink-0 rounded-sm bg-card self-start sticky top-5 space-y-4 p-4",
         className
       )}
       style={{

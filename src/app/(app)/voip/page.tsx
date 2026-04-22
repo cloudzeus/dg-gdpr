@@ -33,8 +33,8 @@ export default async function VoIPPage() {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <Topbar userName={session?.user?.name} userRole={(session?.user as any)?.role} pageTitle="VoIP & Τηλεφωνία" />
-      <main className="flex-1 overflow-y-auto p-6">
-        <div className="flex gap-6">
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+        <div className="flex flex-col gap-6 lg:flex-row">
           <div className="flex-1 space-y-6">
             {/* Header */}
             <div className="flex items-center justify-between">
@@ -126,7 +126,7 @@ export default async function VoIPPage() {
               </CardHeader>
               <CardContent>
                 <form action={createVoIPConfig} className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="space-y-1.5">
                       <label className="text-sm font-medium">Όνομα Παρόχου *</label>
                       <Input name="providerName" placeholder="π.χ. 3CX, Asterisk, Twilio" required />
@@ -136,7 +136,7 @@ export default async function VoIPPage() {
                       <Input name="sipServer" placeholder="π.χ. sip.provider.gr:5060" />
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="space-y-1.5">
                       <label className="text-sm font-medium">Διάρκεια Διατήρησης (ημέρες)</label>
                       <Input name="retentionDays" type="number" defaultValue="90" min="1" max="3650" />
@@ -156,7 +156,7 @@ export default async function VoIPPage() {
                       <option value="LEGAL_OBLIGATION">Νομική Υποχρέωση</option>
                     </Select>
                   </div>
-                  <div className="flex gap-6">
+                  <div className="flex flex-col gap-6 lg:flex-row">
                     <label className="flex items-center gap-2 text-sm cursor-pointer">
                       <input type="checkbox" name="recordingEnabled" className="h-4 w-4 rounded accent-primary" />
                       Ηχογράφηση κλήσεων ενεργή

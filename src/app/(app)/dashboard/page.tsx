@@ -79,11 +79,11 @@ export default async function DashboardPage() {
         userRole={(session?.user as any)?.role}
         pageTitle="Πίνακας Ελέγχου"
       />
-      <main className="flex-1 overflow-y-auto p-6 space-y-6">
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
         {/* Welcome */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h2 className="text-2xl font-bold">
+            <h2 className="text-xl font-bold sm:text-2xl">
               Καλωσορίσατε, {session?.user?.name?.split(" ")[0] ?? "Χρήστη"} 👋
             </h2>
             <p className="text-muted-foreground text-sm mt-1">

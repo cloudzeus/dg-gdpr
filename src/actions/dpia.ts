@@ -11,11 +11,11 @@ export async function createDpia(formData: FormData): Promise<{ id: string }> {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Μη εξουσιοδοτημένος");
 
-  const projectId = formData.get("projectId") as string;
+  const projectId = (formData.get("projectId") as string) || null;
   const title = formData.get("title") as string;
   const processingPurpose = formData.get("processingPurpose") as string;
 
-  if (!projectId || !title || !processingPurpose) {
+  if (!title || !processingPurpose) {
     throw new Error("Συμπληρώστε όλα τα υποχρεωτικά πεδία");
   }
 
@@ -156,6 +156,39 @@ export async function updateDpaContract(formData: FormData): Promise<void> {
   await logAction({ action: "UPDATE", entity: "DpaContract", entityId: id });
   revalidatePath("/dpia");
   revalidatePath(`/dpa/${id}`);
+}
+
+export async function updateDpia(formData: FormData): Promise<void> {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Μη εξουσιοδοτημένος");
+
+  const id = formData.get("id") as string;
+  const status = formData.get("status") as string;
+  const processingPurpose = (formData.get("processingPurpose") as string) || "";
+  const dpoName = (formData.get("dpoName") as string) || null;
+  const supervisoryBody = (formData.get("supervisoryBody") as string) || null;
+  const necessityAssessed = formData.get("necessityAssessed") === "true";
+  const dpoConsulted = formData.get("dpoConsulted") === "true";
+  const risksRaw = (formData.get("risksIdentified") as string) || "[]";
+  const mitigationsRaw = (formData.get("riskMitigation") as string) || "[]";
+
+  await prisma.dpiaReport.update({
+    where: { id },
+    data: {
+      status: status as any,
+      processingPurpose,
+      dpoName,
+      supervisoryBody,
+      necessityAssessed,
+      dpoConsulted,
+      risksIdentified: JSON.parse(risksRaw),
+      riskMitigation: JSON.parse(mitigationsRaw),
+    },
+  });
+
+  await logAction({ action: "UPDATE", entity: "DpiaReport", entityId: id });
+  revalidatePath(`/dpia/${id}`);
+  revalidatePath("/dpia");
 }
 
 export async function deleteDpia(id: string): Promise<void> {

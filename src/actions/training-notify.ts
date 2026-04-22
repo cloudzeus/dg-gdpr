@@ -126,7 +126,8 @@ export async function sendTrainingNotification(input: {
     });
   }
 
-  const loginUrl = process.env.NEXTAUTH_URL ?? process.env.AUTH_URL ?? "https://gdpr.dgsmart.gr";
+  const baseUrl = (process.env.NEXTAUTH_URL ?? process.env.AUTH_URL ?? "https://gdpr.dgsmart.gr").replace(/\/$/, "");
+  const loginUrl = `${baseUrl}/training/${module.id}`;
   let sent = 0;
   let skipped = 0;
 

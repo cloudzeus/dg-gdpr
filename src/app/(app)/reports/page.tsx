@@ -105,8 +105,8 @@ export default async function ReportsPage() {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <Topbar userName={session?.user?.name} userRole={(session?.user as any)?.role} pageTitle="Αναφορές & Βαθμολογία Συμμόρφωσης" />
-      <main className="flex-1 overflow-y-auto p-6">
-        <div className="flex gap-6">
+      <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+        <div className="flex flex-col gap-6 lg:flex-row">
           <div className="flex-1 space-y-6">
             {/* Score summary */}
             <div className="flex items-center justify-between">
@@ -123,14 +123,14 @@ export default async function ReportsPage() {
 
             {/* Overall score card */}
             <Card className={`border-2 ${grade.color.replace("text-", "border-").replace("-600", "-300")}`}>
-              <CardContent className="p-6 flex items-center gap-6">
+              <CardContent className="p-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:gap-6 sm:p-6">
                 <div className={`flex h-24 w-24 items-center justify-center rounded-2xl ${grade.bg} shrink-0`}>
                   <div className="text-center">
                     <p className={`text-3xl font-black ${grade.color}`}>{Math.round(overallScore)}%</p>
                     <p className={`text-xs font-semibold ${grade.color}`}>{grade.label}</p>
                   </div>
                 </div>
-                <div className="grid grid-cols-4 gap-6 flex-1">
+                <div className="grid grid-cols-2 gap-4 flex-1 sm:grid-cols-4">
                   {chartData.map((d) => (
                     <div key={d.label} className="text-center">
                       {d.score !== null ? (
