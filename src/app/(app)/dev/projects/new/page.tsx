@@ -2,14 +2,23 @@ import { auth } from "@/lib/auth";
 import { Topbar } from "@/components/layout/topbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { LegalSidebar } from "@/components/shared/legal-sidebar";
+import { ClientPicker } from "@/components/modules/client-picker";
 import { createProject } from "@/actions/dev";
+import { prisma } from "@/lib/prisma";
 
 export default async function NewProjectPage() {
   const session = await auth();
+
+  const companies = await prisma.company.findMany({
+    where: { isActive: true },
+    select: { id: true, name: true, vatNumber: true, legalName: true },
+    orderBy: { name: "asc" },
+  });
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <Topbar userName={session?.user?.name} userRole={(session?.user as any)?.role} pageTitle="Νέο Έργο Ανάπτυξης" />
@@ -26,10 +35,9 @@ export default async function NewProjectPage() {
                     <label className="text-sm font-medium">Όνομα Έργου *</label>
                     <Input name="name" placeholder="π.χ. ERP Integration — Πελάτης Α" required />
                   </div>
-                  <div className="space-y-1.5">
-                    <label className="text-sm font-medium">Όνομα Πελάτη *</label>
-                    <Input name="clientName" placeholder="π.χ. Εταιρεία Α.Ε." required />
-                  </div>
+
+                  <ClientPicker companies={companies} />
+
                   <div className="space-y-1.5">
                     <label className="text-sm font-medium">Περιγραφή</label>
                     <Textarea name="description" placeholder="Σύντομη περιγραφή του έργου και της επεξεργασίας δεδομένων..." rows={3} />
