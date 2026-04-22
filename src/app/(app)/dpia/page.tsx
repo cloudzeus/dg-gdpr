@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DpiaPageActions, DpaPageActions, DpaWordExportButton } from "@/components/modules/dpia-page-actions";
+import { DeleteDpiaButton, DeleteDpaButton } from "@/components/modules/delete-dpia-dpa-button";
 import { CheckCircle2, Clock, AlertTriangle, FileText, Download } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import Link from "next/link";
@@ -101,6 +102,7 @@ export default async function DpiaPage() {
                       <Link href={`/dpia/${d.id}`}>
                         <Button variant="outline" size="sm">Προβολή</Button>
                       </Link>
+                      <DeleteDpiaButton id={d.id} />
                     </div>
                   </div>
                 ))}
@@ -149,6 +151,7 @@ export default async function DpiaPage() {
                       <Link href={`/dpa/${c.id}`}>
                         <Button variant="outline" size="sm">Προβολή</Button>
                       </Link>
+                      <DeleteDpaButton id={c.id} />
                     </div>
                   </div>
                 ))}

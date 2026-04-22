@@ -16,6 +16,7 @@ import { formatDate } from "@/lib/utils";
 import Link from "next/link";
 import { updateDpaContract, regenerateDpaWord } from "@/actions/dpia";
 import { DpaRegenButton } from "@/components/modules/dpa-regen-button";
+import { DpiaDocumentActions } from "@/components/modules/dpia-document-actions";
 
 const STATUS_LABELS: Record<string, string> = {
   PENDING: "Εκκρεμεί",
@@ -269,6 +270,9 @@ export default async function DpaDetailPage({ params }: { params: Promise<{ id: 
               </form>
             </CardContent>
           </Card>
+
+          {/* Signed doc upload + delete */}
+          <DpiaDocumentActions id={id} type="dpa" signedDocUrl={contract.signedDocUrl} />
 
           {/* File info */}
           {contract.pdfUrl && (

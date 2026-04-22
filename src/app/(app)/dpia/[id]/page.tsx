@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import Link from "next/link";
+import { DpiaDocumentActions } from "@/components/modules/dpia-document-actions";
 
 const STATUS_LABELS: Record<string, string> = {
   DRAFT: "Προσχέδιο",
@@ -262,6 +263,9 @@ export default async function DpiaDetailPage({ params }: { params: Promise<{ id:
               </CardContent>
             </Card>
           )}
+
+          {/* Signed doc upload + delete */}
+          <DpiaDocumentActions id={report.id} type="dpia" signedDocUrl={report.signedDocUrl} />
 
           {/* GDPR compliance checklist */}
           <Card>

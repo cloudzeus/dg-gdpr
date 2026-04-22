@@ -158,6 +158,41 @@ export async function updateDpaContract(formData: FormData): Promise<void> {
   revalidatePath(`/dpa/${id}`);
 }
 
+export async function deleteDpia(id: string): Promise<void> {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Μη εξουσιοδοτημένος");
+  await prisma.dpiaReport.delete({ where: { id } });
+  await logAction({ action: "DELETE", entity: "DpiaReport", entityId: id });
+  revalidatePath("/dpia");
+}
+
+export async function deleteDpa(id: string): Promise<void> {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Μη εξουσιοδοτημένος");
+  await prisma.dpaContract.delete({ where: { id } });
+  await logAction({ action: "DELETE", entity: "DpaContract", entityId: id });
+  revalidatePath("/dpia");
+}
+
+export async function saveSignedDocUrl(
+  id: string,
+  type: "dpia" | "dpa",
+  url: string
+): Promise<void> {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Μη εξουσιοδοτημένος");
+  if (type === "dpia") {
+    await prisma.dpiaReport.update({ where: { id }, data: { signedDocUrl: url } });
+    revalidatePath(`/dpia/${id}`);
+    revalidatePath("/dpia");
+  } else {
+    await prisma.dpaContract.update({ where: { id }, data: { signedDocUrl: url } });
+    revalidatePath(`/dpa/${id}`);
+    revalidatePath("/dpia");
+  }
+  await logAction({ action: "UPDATE", entity: type === "dpia" ? "DpiaReport" : "DpaContract", entityId: id });
+}
+
 export async function regenerateDpaWord(id: string): Promise<{ pdfUrl: string }> {
   const session = await auth();
   if (!session?.user?.id) throw new Error("Μη εξουσιοδοτημένος");

@@ -522,6 +522,7 @@ model DpaContract {
   expiresAt        DateTime?
   status           DpaStatus @default(PENDING)
   pdfUrl           String?
+  signedDocUrl     String?
   gdprArticles     String?
   notes            String?   @db.Text
   createdAt        DateTime  @default(now())
@@ -550,6 +551,7 @@ model DpiaReport {
   supervisoryBody   String?
   status            DpiaStatus  @default(DRAFT)
   pdfUrl            String?
+  signedDocUrl      String?
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
 
