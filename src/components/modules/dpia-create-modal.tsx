@@ -23,6 +23,10 @@ interface Props {
   onClose: () => void;
   projects: Project[];
   defaultCompany?: string;
+  prefillTitle?: string;
+  prefillPurpose?: string;
+  prefillDataObjects?: string[];
+  prefillRisks?: string[];
 }
 
 const STEP_HELP: Record<Step, { title: string; text: string; article: string }> = {
@@ -63,7 +67,7 @@ const MITIGATION_PRESETS = [
 
 type Step = 1 | 2 | 3;
 
-export function DpiaCreateModal({ open, onClose, projects, defaultCompany }: Props) {
+export function DpiaCreateModal({ open, onClose, projects, defaultCompany, prefillTitle, prefillPurpose, prefillDataObjects, prefillRisks }: Props) {
   const router = useRouter();
   const [step, setStep] = useState<Step>(1);
   const [showHelp, setShowHelp] = useState(false);
@@ -72,14 +76,14 @@ export function DpiaCreateModal({ open, onClose, projects, defaultCompany }: Pro
 
   // Step 1
   const [projectId, setProjectId] = useState(projects[0]?.id ?? "");
-  const [title, setTitle] = useState("");
-  const [processingPurpose, setProcessingPurpose] = useState("");
-  const [dataObjects, setDataObjects] = useState<string[]>([]);
+  const [title, setTitle] = useState(prefillTitle ?? "");
+  const [processingPurpose, setProcessingPurpose] = useState(prefillPurpose ?? "");
+  const [dataObjects, setDataObjects] = useState<string[]>(prefillDataObjects ?? []);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
 
   // Step 2
-  const [risks, setRisks] = useState<string[]>([]);
+  const [risks, setRisks] = useState<string[]>(prefillRisks ?? []);
   const [customRisk, setCustomRisk] = useState("");
   const [mitigations, setMitigations] = useState<string[]>([]);
   const [customMitigation, setCustomMitigation] = useState("");
