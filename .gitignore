@@ -36,6 +36,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# claire tooling / worktrees
+.claire/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
