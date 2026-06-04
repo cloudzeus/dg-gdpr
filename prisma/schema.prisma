@@ -783,3 +783,133 @@ model TrainingResult {
   user   User           @relation(fields: [userId], references: [id])
   module TrainingModule @relation(fields: [moduleId], references: [id])
 }
+
+// ─── Consent Management (CMP) ─────────────────────────────────────────────────
+
+enum DataFieldCategory {
+  IDENTITY
+  CONTACT
+  FINANCIAL
+  HEALTH
+  ONLINE
+  OTHER
+}
+
+enum FieldInputType {
+  TEXT
+  EMAIL
+  PHONE
+  DATE
+  NUMBER
+  TEXTAREA
+}
+
+enum ConsentProjectStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum ConfirmationMethod {
+  EMAIL
+  SMS
+  BOTH
+}
+
+enum ConsentStatus {
+  PENDING
+  CONFIRMED
+  WITHDRAWN
+}
+
+enum LegalBasis {
+  CONSENT
+  CONTRACT
+  LEGAL_OBLIGATION
+  VITAL_INTEREST
+  PUBLIC_TASK
+  LEGITIMATE_INTEREST
+}
+
+model PersonalDataField {
+  id                  String            @id @default(cuid())
+  key                 String            @unique
+  label               Json
+  description         Json
+  category            DataFieldCategory @default(OTHER)
+  isSpecialCategory   Boolean           @default(false)
+  suggestedLegalBasis Json?
+  inputType           FieldInputType    @default(TEXT)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  projectFields ConsentProjectField[]
+}
+
+model ConsentProject {
+  id                 String               @id @default(cuid())
+  name               String
+  slug               String               @unique
+  description        Json
+  status             ConsentProjectStatus @default(DRAFT)
+  confirmationMethod ConfirmationMethod   @default(EMAIL)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  fields   ConsentProjectField[]
+  purposes ConsentPurpose[]
+  records  ConsentRecord[]
+}
+
+model ConsentProjectField {
+  id        String @id @default(cuid())
+  projectId String
+  fieldId   String
+  required  Boolean @default(true)
+  order     Int     @default(0)
+
+  project ConsentProject    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  field   PersonalDataField @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, fieldId])
+  @@index([projectId])
+}
+
+model ConsentPurpose {
+  id          String     @id @default(cuid())
+  projectId   String
+  label       Json
+  description Json
+  legalBasis  LegalBasis @default(CONSENT)
+  required    Boolean    @default(false)
+  order       Int        @default(0)
+
+  project ConsentProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+model ConsentRecord {
+  id                  String              @id @default(cuid())
+  projectId           String
+  subjectEmail        String
+  subjectPhone        String?
+  values              Json
+  purposeConsents     Json
+  status              ConsentStatus       @default(PENDING)
+  verifyToken         String              @unique
+  confirmedAt         DateTime?
+  ipAddress           String?
+  userAgent           String?             @db.Text
+  confirmationChannel ConfirmationMethod?
+  locale              String              @default("el")
+  withdrawnAt         DateTime?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  project ConsentProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([subjectEmail])
+  @@index([status])
+}
