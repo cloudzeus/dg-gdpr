@@ -4,10 +4,7 @@ import { generateConsentToken } from "@/lib/consent-token";
 import { sendMail } from "@/lib/mail";
 import { sendSms } from "@/lib/sms";
 import { consentVerifyEmail } from "@/lib/consent-email";
-
-function baseUrl(req: NextRequest): string {
-  return process.env.NEXT_PUBLIC_APP_URL ?? new URL(req.url).origin;
-}
+import { getBaseUrl } from "@/lib/base-url";
 
 // POST { subjectEmail, subjectPhone?, values, purposeConsents, locale? }
 export async function POST(req: NextRequest, { params }: { params: Promise<{ slug: string }> }) {
@@ -78,7 +75,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
     });
   }
 
-  const confirmUrl = `${baseUrl(req)}/c/${slug}/confirm/${verifyToken}`;
+  const confirmUrl = `${getBaseUrl(req)}/c/${slug}/confirm/${verifyToken}`;
   const mail = consentVerifyEmail({ projectName: project.name, confirmUrl });
   await sendMail({ to: email, subject: mail.subject, html: mail.html });
   if ((project.confirmationMethod === "SMS" || project.confirmationMethod === "BOTH") && body.subjectPhone) {

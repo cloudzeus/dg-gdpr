@@ -3,10 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { sendMail } from "@/lib/mail";
 import { sendSms } from "@/lib/sms";
 import { preferenceAccessEmail } from "@/lib/consent-email";
-
-function baseUrl(req: NextRequest): string {
-  return process.env.NEXT_PUBLIC_APP_URL ?? new URL(req.url).origin;
-}
+import { getBaseUrl } from "@/lib/base-url";
 
 // POST { slug, email } → always 200 (no account enumeration). Sends a manage link if a record exists.
 export async function POST(req: NextRequest) {
@@ -26,7 +23,7 @@ export async function POST(req: NextRequest) {
       where: { projectId: project.id, subjectEmail: email, status: { in: ["CONFIRMED", "PENDING"] } },
     });
     if (record) {
-      const manageUrl = `${baseUrl(req)}/c/${slug}/manage/${record.verifyToken}`;
+      const manageUrl = `${getBaseUrl(req)}/c/${slug}/manage/${record.verifyToken}`;
       const mail = preferenceAccessEmail({ projectName: project.name, manageUrl });
       await sendMail({ to: email, subject: mail.subject, html: mail.html });
       if ((project.confirmationMethod === "SMS" || project.confirmationMethod === "BOTH") && record.subjectPhone) {
