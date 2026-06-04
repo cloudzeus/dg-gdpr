@@ -540,6 +540,7 @@ model DpaContract {
 model DpiaReport {
   id                String      @id @default(cuid())
   projectId         String?
+  consentProjectId  String?
   userId            String
   title             String
   processingPurpose String      @db.Text
@@ -555,8 +556,11 @@ model DpiaReport {
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
 
-  project Project? @relation(fields: [projectId], references: [id])
-  user    User     @relation(fields: [userId], references: [id])
+  project        Project?        @relation(fields: [projectId], references: [id])
+  consentProject ConsentProject? @relation(fields: [consentProjectId], references: [id])
+  user           User            @relation(fields: [userId], references: [id])
+
+  @@index([consentProjectId])
 }
 
 enum DpiaStatus {
@@ -856,9 +860,10 @@ model ConsentProject {
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
 
-  fields   ConsentProjectField[]
-  purposes ConsentPurpose[]
-  records  ConsentRecord[]
+  fields      ConsentProjectField[]
+  purposes    ConsentPurpose[]
+  records     ConsentRecord[]
+  dpiaReports DpiaReport[]
 }
 
 model ConsentProjectField {

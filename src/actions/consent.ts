@@ -136,12 +136,17 @@ export async function deleteConsentProject(id: string) {
   revalidatePath("/consent/projects");
 }
 
-export async function setProjectFields(projectId: string, fieldIds: string[]) {
+export async function setProjectFields(
+  projectId: string,
+  fields: Array<{ fieldId: string; required: boolean }>,
+) {
   await requireUser();
   await prisma.consentProjectField.deleteMany({ where: { projectId } });
-  await prisma.consentProjectField.createMany({
-    data: fieldIds.map((fieldId, idx) => ({ projectId, fieldId, order: idx })),
-  });
+  if (fields.length) {
+    await prisma.consentProjectField.createMany({
+      data: fields.map((f, idx) => ({ projectId, fieldId: f.fieldId, required: f.required, order: idx })),
+    });
+  }
   await logAction({ action: "UPDATE", entity: "ConsentProjectFields", entityId: projectId });
   revalidatePath(`/consent/projects/${projectId}`);
 }
