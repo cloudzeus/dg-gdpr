@@ -4,8 +4,9 @@ import { useState } from "react";
 import Link from "next/link";
 import {
   Plus, Trash2, Copy, Check, Database, Target, Settings2,
-  Globe, Mail, MessageSquare, ShieldAlert, Save, Link2,
+  Globe, ShieldAlert, Save, Link2,
   FileSearch, Loader2, AlertTriangle, CheckCircle2, ArrowUpRight,
+  Server, FileText, ExternalLink, Scale,
 } from "lucide-react";
 import {
   updateConsentProject, setProjectFields, addPurpose, deletePurpose,
@@ -24,6 +25,13 @@ interface ProjectData {
 }
 interface FieldOption { id: string; key: string; label: LocalizedText; isSpecialCategory?: boolean }
 interface SelectedField { fieldId: string; required: boolean; key: string; label: LocalizedText; isSpecialCategory?: boolean }
+interface PolicyDoc { id: string; title: string; type: string; fileUrl: string | null }
+
+const POLICY_TYPE_LABELS: Record<string, string> = {
+  PRIVACY_NOTICE: "Ενημέρωση Απορρήτου", COOKIE_POLICY: "Πολιτική Cookies",
+  ACCEPTABLE_USE: "Αποδεκτή Χρήση", DATA_RETENTION: "Διατήρηση Δεδομένων",
+  SECURITY_POLICY: "Πολιτική Ασφάλειας", DATA_BREACH: "Παραβίαση Δεδομένων",
+};
 
 interface DpiaResult {
   required: boolean;
@@ -73,7 +81,7 @@ function SectionCard({ icon: Icon, title, hint, children }: {
   );
 }
 
-export function ProjectEditor({ project, allFields }: { project: ProjectData; allFields: FieldOption[] }) {
+export function ProjectEditor({ project, allFields, policies }: { project: ProjectData; allFields: FieldOption[]; policies: PolicyDoc[] }) {
   const [name, setName] = useState(project.name);
   const [descEl, setDescEl] = useState(project.description?.el ?? "");
   const [descEn, setDescEn] = useState(project.description?.en ?? "");
@@ -97,6 +105,15 @@ export function ProjectEditor({ project, allFields }: { project: ProjectData; al
   const manageUrl = `${publicBase}/c/${project.slug}/manage`;
   const statusMeta = STATUS_OPTIONS.find((s) => s.value === status) ?? STATUS_OPTIONS[0];
   const availableFields = allFields.filter((f) => !fields.some((sf) => sf.fieldId === f.id));
+
+  const endpoints: { method: string; label: string; url: string; note: string }[] = [
+    { method: "GET", label: "Λίστα συναινέσεων (JSON)", url: `${publicBase}/api/public/gdpr/consent/projects/${project.slug}/records`, note: "Απαιτεί X-API-Key" },
+    { method: "GET", label: "Όλα τα consent projects (JSON)", url: `${publicBase}/api/public/gdpr/consent/projects`, note: "Απαιτεί X-API-Key" },
+    { method: "GET", label: "Εξαγωγή Excel", url: `${publicBase}/api/export/consent/${project.id}`, note: "Διαχειριστής (session)" },
+    { method: "POST", label: "Υποβολή συναίνεσης (public)", url: `${publicBase}/api/public/consent/${project.slug}/submit`, note: "Χωρίς key" },
+    { method: "GET", label: "OpenAPI spec", url: `${publicBase}/api/public/openapi.json`, note: "Τεκμηρίωση" },
+  ];
+  const policyLinks = policies.map((p) => ({ ...p, url: p.fileUrl || `${publicBase}/api/public/gdpr/policies/${p.id}` }));
 
   async function saveDetails() {
     setSaving(true); setSaved(false);
@@ -235,6 +252,51 @@ export function ProjectEditor({ project, allFields }: { project: ProjectData; al
             </div>
           ))}
         </div>
+      </SectionCard>
+
+      {/* Web service endpoints */}
+      <SectionCard icon={Server} title="Web Service Endpoints" hint="Τα API endpoints για ενσωμάτωση αυτού του project με τρίτα συστήματα.">
+        <div className="space-y-2">
+          {endpoints.map((ep, i) => (
+            <div key={i} className="flex items-center gap-2 rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2">
+              <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-bold ${ep.method === "POST" ? "bg-amber-100 text-amber-700" : "bg-green-100 text-green-700"}`}>{ep.method}</span>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs text-neutral-500">{ep.label} <span className="text-neutral-400">· {ep.note}</span></p>
+                <p className="truncate font-mono text-sm text-neutral-700">{ep.url}</p>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => copy(ep.url, `ep-${i}`)}>
+                {copied === `ep-${i}` ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+              </Button>
+            </div>
+          ))}
+        </div>
+        <p className="mt-3 text-xs text-neutral-500">Τα προστατευμένα endpoints απαιτούν header <code className="rounded bg-neutral-100 px-1">X-API-Key</code>. Δημιουργήστε κλειδιά στα «API Κλειδιά».</p>
+      </SectionCard>
+
+      {/* Company terms & policies */}
+      <SectionCard icon={Scale} title="Όροι & Πολιτικές εταιρίας" hint="Κεντρικά δημοσιευμένες πολιτικές που μπορείτε να συνδέσετε με τη φόρμα συναίνεσης.">
+        {policyLinks.length === 0 ? (
+          <p className="rounded-md border border-dashed border-neutral-200 py-6 text-center text-sm text-neutral-400">
+            Δεν υπάρχουν ενεργές πολιτικές. Δημοσιεύστε στα «Πολιτικές &amp; Έγγραφα».
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {policyLinks.map((p) => (
+              <div key={p.id} className="flex items-center gap-2 rounded-md border border-neutral-200 px-3 py-2">
+                <FileText className="h-4 w-4 shrink-0 text-neutral-400" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-neutral-800">{p.title}</p>
+                  <p className="truncate font-mono text-xs text-neutral-500">{p.url}</p>
+                </div>
+                <Badge variant="outline">{POLICY_TYPE_LABELS[p.type] ?? p.type}</Badge>
+                <a href={p.url} target="_blank" rel="noreferrer" className="rounded p-1.5 text-neutral-400 hover:text-[#0078d4]" title="Άνοιγμα"><ExternalLink className="h-4 w-4" /></a>
+                <Button variant="outline" size="sm" onClick={() => copy(p.url, `pol-${p.id}`)}>
+                  {copied === `pol-${p.id}` ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
       </SectionCard>
 
       {/* Πεδία (ένα-ένα) */}

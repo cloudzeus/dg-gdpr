@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Users } from "lucide-react";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { getConsentProjectById, listPersonalDataFields } from "@/actions/consent";
 import { Topbar } from "@/components/layout/topbar";
 import { AppFooter } from "@/components/layout/app-footer";
@@ -10,7 +11,15 @@ import { ProjectEditor } from "./project-editor";
 export default async function ConsentProjectEditPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await auth();
-  const [project, allFields] = await Promise.all([getConsentProjectById(id), listPersonalDataFields()]);
+  const [project, allFields, policies] = await Promise.all([
+    getConsentProjectById(id),
+    listPersonalDataFields(),
+    prisma.policyDocument.findMany({
+      where: { status: "ACTIVE" },
+      select: { id: true, title: true, type: true, fileUrl: true },
+      orderBy: { title: "asc" },
+    }),
+  ]);
   if (!project) notFound();
 
   return (
@@ -42,6 +51,7 @@ export default async function ConsentProjectEditPage({ params }: { params: Promi
           <ProjectEditor
             project={JSON.parse(JSON.stringify(project))}
             allFields={JSON.parse(JSON.stringify(allFields))}
+            policies={JSON.parse(JSON.stringify(policies))}
           />
 
           <AppFooter />
