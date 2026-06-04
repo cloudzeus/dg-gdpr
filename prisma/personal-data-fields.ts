@@ -427,4 +427,132 @@ export const PERSONAL_DATA_FIELDS: SeedField[] = [
     category: "OTHER", inputType: "TEXT", isSpecialCategory: true,
     legalBasis: [{ basis: "LEGAL_OBLIGATION", el: "Επιτρέπεται μόνο υπό τον έλεγχο επίσημης αρχής ή όταν προβλέπεται από τον νόμο (Άρθρο 10).", en: "Permitted only under control of official authority or where authorised by law (Art. 10)." }],
   },
+
+  // ── Οικογενειακή / αστική κατάσταση / Civil status ──────────────────────
+  {
+    key: "marital_status",
+    labelEl: "Οικογενειακή κατάσταση", labelEn: "Marital status",
+    descEl: "Η οικογενειακή κατάσταση του υποκειμένου (π.χ. έγγαμος/η, άγαμος/η).",
+    descEn: "The data subject's marital status (e.g. married, single).",
+    category: "OTHER", inputType: "TEXT",
+    legalBasis: [{ basis: "LEGAL_OBLIGATION", el: "Όταν απαιτείται για φορολογικές/ασφαλιστικές παροχές (Άρθρο 6 παρ. 1 στοιχ. γ).", en: "Where required for tax/social-security benefits (Art. 6(1)(c))." }],
+  },
+  {
+    key: "number_of_children",
+    labelEl: "Αριθμός τέκνων", labelEn: "Number of children",
+    descEl: "Ο αριθμός εξαρτώμενων τέκνων (π.χ. για οικογενειακά επιδόματα).",
+    descEn: "The number of dependent children (e.g. for family allowances).",
+    category: "OTHER", inputType: "NUMBER",
+    legalBasis: [{ basis: "LEGAL_OBLIGATION", el: "Για χορήγηση οικογενειακών επιδομάτων (Άρθρο 6 παρ. 1 στοιχ. γ).", en: "For granting family allowances (Art. 6(1)(c))." }],
+  },
+
+  // ── Ιατρικά / Medical (ειδική κατηγορία, Άρθρο 9) ───────────────────────
+  {
+    key: "blood_type",
+    labelEl: "Ομάδα αίματος", labelEn: "Blood type",
+    descEl: "Η ομάδα αίματος του υποκειμένου (δεδομένο υγείας, ειδική κατηγορία).",
+    descEn: "The data subject's blood type (health data, special category).",
+    category: "HEALTH", inputType: "TEXT", isSpecialCategory: true,
+    legalBasis: [
+      { basis: "CONSENT", el: "Ρητή συγκατάθεση (Άρθρο 9 παρ. 2 στοιχ. α).", en: "Explicit consent (Art. 9(2)(a))." },
+      { basis: "VITAL_INTEREST", el: "Για προστασία ζωτικού συμφέροντος σε επείγον περιστατικό (Άρθρο 9 παρ. 2 στοιχ. γ).", en: "To protect vital interests in an emergency (Art. 9(2)(c))." },
+    ],
+  },
+  {
+    key: "medical_history",
+    labelEl: "Ιατρικό ιστορικό", labelEn: "Medical history",
+    descEl: "Ιστορικό ασθενειών, διαγνώσεων και θεραπειών (ειδική κατηγορία, Άρθρο 9).",
+    descEn: "History of illnesses, diagnoses and treatments (special category, Art. 9).",
+    category: "HEALTH", inputType: "TEXTAREA", isSpecialCategory: true,
+    legalBasis: [{ basis: "CONSENT", el: "Απαιτείται ρητή συγκατάθεση (Άρθρο 9 παρ. 2 στοιχ. α).", en: "Requires explicit consent (Art. 9(2)(a))." }],
+  },
+  {
+    key: "medication",
+    labelEl: "Φαρμακευτική αγωγή", labelEn: "Medication",
+    descEl: "Τρέχουσα ή προηγούμενη φαρμακευτική αγωγή (ειδική κατηγορία, Άρθρο 9).",
+    descEn: "Current or past medication (special category, Art. 9).",
+    category: "HEALTH", inputType: "TEXTAREA", isSpecialCategory: true,
+    legalBasis: [{ basis: "CONSENT", el: "Απαιτείται ρητή συγκατάθεση (Άρθρο 9 παρ. 2 στοιχ. α).", en: "Requires explicit consent (Art. 9(2)(a))." }],
+  },
+  {
+    key: "allergies",
+    labelEl: "Αλλεργίες", labelEn: "Allergies",
+    descEl: "Γνωστές αλλεργίες του υποκειμένου (δεδομένο υγείας, ειδική κατηγορία).",
+    descEn: "The data subject's known allergies (health data, special category).",
+    category: "HEALTH", inputType: "TEXTAREA", isSpecialCategory: true,
+    legalBasis: [
+      { basis: "CONSENT", el: "Ρητή συγκατάθεση (Άρθρο 9 παρ. 2 στοιχ. α).", en: "Explicit consent (Art. 9(2)(a))." },
+      { basis: "VITAL_INTEREST", el: "Για προστασία ζωτικού συμφέροντος (Άρθρο 9 παρ. 2 στοιχ. γ).", en: "To protect vital interests (Art. 9(2)(c))." },
+    ],
+  },
+
+  // ── Ασφαλιστικά / Insurance ─────────────────────────────────────────────
+  {
+    key: "insurance_provider",
+    labelEl: "Ασφαλιστικός φορέας", labelEn: "Insurance provider",
+    descEl: "Ο φορέας κύριας ή ιδιωτικής ασφάλισης του υποκειμένου.",
+    descEn: "The data subject's primary or private insurance provider.",
+    category: "FINANCIAL", inputType: "TEXT",
+    legalBasis: [{ basis: "CONTRACT", el: "Απαραίτητος για την εκτέλεση ασφαλιστικής σύμβασης (Άρθρο 6 παρ. 1 στοιχ. β).", en: "Necessary to perform an insurance contract (Art. 6(1)(b))." }],
+  },
+  {
+    key: "insurance_policy_number",
+    labelEl: "Αριθμός ασφαλιστηρίου", labelEn: "Insurance policy number",
+    descEl: "Ο αριθμός του ασφαλιστηρίου συμβολαίου.",
+    descEn: "The insurance policy number.",
+    category: "FINANCIAL", inputType: "TEXT",
+    legalBasis: [{ basis: "CONTRACT", el: "Απαραίτητος για την εκτέλεση ασφαλιστικής σύμβασης (Άρθρο 6 παρ. 1 στοιχ. β).", en: "Necessary to perform an insurance contract (Art. 6(1)(b))." }],
+  },
+
+  // ── Εκπαιδευτικά / Education ─────────────────────────────────────────────
+  {
+    key: "education_level",
+    labelEl: "Επίπεδο εκπαίδευσης", labelEn: "Education level",
+    descEl: "Το ανώτατο επίπεδο εκπαίδευσης που έχει ολοκληρώσει το υποκείμενο.",
+    descEn: "The highest education level completed by the data subject.",
+    category: "OTHER", inputType: "TEXT",
+    legalBasis: [{ basis: "CONSENT", el: "Συλλέγεται κατόπιν συγκατάθεσης ή στο πλαίσιο σύμβασης εργασίας (Άρθρο 6 παρ. 1 στοιχ. α/β).", en: "Collected with consent or within an employment contract (Art. 6(1)(a)/(b))." }],
+  },
+  {
+    key: "degree",
+    labelEl: "Τίτλος σπουδών", labelEn: "Academic degree",
+    descEl: "Πτυχίο ή τίτλος σπουδών του υποκειμένου.",
+    descEn: "The data subject's academic degree or qualification.",
+    category: "OTHER", inputType: "TEXT",
+    legalBasis: [{ basis: "CONTRACT", el: "Απαραίτητος για αξιολόγηση προσόντων σε εργασιακή σχέση (Άρθρο 6 παρ. 1 στοιχ. β).", en: "Necessary to assess qualifications in an employment relationship (Art. 6(1)(b))." }],
+  },
+  {
+    key: "student_id",
+    labelEl: "Αριθμός μητρώου φοιτητή", labelEn: "Student registration number",
+    descEl: "Ο αριθμός μητρώου του φοιτητή/σπουδαστή.",
+    descEn: "The student's registration number.",
+    category: "OTHER", inputType: "TEXT",
+    legalBasis: [{ basis: "CONTRACT", el: "Απαραίτητος για την παροχή εκπαιδευτικής υπηρεσίας (Άρθρο 6 παρ. 1 στοιχ. β).", en: "Necessary to provide the educational service (Art. 6(1)(b))." }],
+  },
+  {
+    key: "institution_name",
+    labelEl: "Εκπαιδευτικό ίδρυμα", labelEn: "Educational institution",
+    descEl: "Το όνομα του σχολείου/πανεπιστημίου του υποκειμένου.",
+    descEn: "The name of the data subject's school/university.",
+    category: "OTHER", inputType: "TEXT",
+    legalBasis: [{ basis: "CONSENT", el: "Συλλέγεται κατόπιν συγκατάθεσης ή στο πλαίσιο σύμβασης (Άρθρο 6 παρ. 1 στοιχ. α/β).", en: "Collected with consent or within a contract (Art. 6(1)(a)/(b))." }],
+  },
+
+  // ── Οχήματα / Vehicle ───────────────────────────────────────────────────
+  {
+    key: "vehicle_plate",
+    labelEl: "Αριθμός κυκλοφορίας οχήματος", labelEn: "Vehicle registration plate",
+    descEl: "Ο αριθμός πινακίδας κυκλοφορίας του οχήματος (συνδέεται με φυσικό πρόσωπο).",
+    descEn: "The vehicle registration plate number (linked to a natural person).",
+    category: "OTHER", inputType: "TEXT",
+    legalBasis: [{ basis: "CONTRACT", el: "Απαραίτητος όταν το όχημα αφορά την υπηρεσία (π.χ. parking, ασφάλιση) (Άρθρο 6 παρ. 1 στοιχ. β).", en: "Necessary where the vehicle relates to the service (e.g. parking, insurance) (Art. 6(1)(b))." }],
+  },
+  {
+    key: "vehicle_vin",
+    labelEl: "Αριθμός πλαισίου (VIN)", labelEn: "Vehicle identification number (VIN)",
+    descEl: "Ο μοναδικός αριθμός αναγνώρισης οχήματος.",
+    descEn: "The unique vehicle identification number.",
+    category: "OTHER", inputType: "TEXT",
+    legalBasis: [{ basis: "CONTRACT", el: "Απαραίτητος για σέρβις, ασφάλιση ή μεταβίβαση οχήματος (Άρθρο 6 παρ. 1 στοιχ. β).", en: "Necessary for servicing, insurance or vehicle transfer (Art. 6(1)(b))." }],
+  },
 ];

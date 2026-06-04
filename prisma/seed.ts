@@ -373,6 +373,55 @@ async function main() {
   }
   console.log(`Seeded ${PERSONAL_DATA_FIELDS.length} personal data fields (EL/EN + legal basis)`);
 
+  // ── Demo ConsentProject (created once; preserved on re-seed) ───────────────
+  const DEMO_SLUG = "newsletter-demo";
+  const existingDemo = await prisma.consentProject.findUnique({ where: { slug: DEMO_SLUG } });
+  if (!existingDemo) {
+    const demoFieldKeys = ["full_name", "email", "mobile"];
+    const demoFields = await prisma.personalDataField.findMany({ where: { key: { in: demoFieldKeys } } });
+    const byKey = new Map(demoFields.map((f) => [f.key, f.id]));
+
+    const demo = await prisma.consentProject.create({
+      data: {
+        slug: DEMO_SLUG,
+        name: "Newsletter & Επικοινωνία (Demo)",
+        description: {
+          el: "Εγγραφή στο newsletter μας και επιλογή τρόπων επικοινωνίας. Δείγμα καμπάνιας συναίνεσης.",
+          en: "Subscribe to our newsletter and choose communication preferences. Sample consent campaign.",
+        },
+        status: "ACTIVE",
+        confirmationMethod: "EMAIL",
+        fields: {
+          create: demoFieldKeys
+            .filter((k) => byKey.has(k))
+            .map((k, i) => ({ fieldId: byKey.get(k)!, required: k !== "mobile", order: i })),
+        },
+        purposes: {
+          create: [
+            {
+              label: { el: "Αποστολή newsletter", en: "Newsletter delivery" },
+              description: { el: "Λήψη ενημερωτικών δελτίων μέσω email.", en: "Receive newsletters by email." },
+              legalBasis: "CONSENT", required: true, order: 0,
+            },
+            {
+              label: { el: "Προσωποποιημένες προσφορές", en: "Personalised offers" },
+              description: { el: "Λήψη εξατομικευμένων προσφορών βάσει προτιμήσεων.", en: "Receive tailored offers based on preferences." },
+              legalBasis: "CONSENT", required: false, order: 1,
+            },
+            {
+              label: { el: "Έρευνες ικανοποίησης", en: "Satisfaction surveys" },
+              description: { el: "Συμμετοχή σε έρευνες για τη βελτίωση των υπηρεσιών.", en: "Participate in surveys to improve our services." },
+              legalBasis: "CONSENT", required: false, order: 2,
+            },
+          ],
+        },
+      },
+    });
+    console.log(`Seeded demo ConsentProject "${demo.name}" (slug: ${demo.slug}, ${demoFields.length} fields, 3 purposes)`);
+  } else {
+    console.log(`Demo ConsentProject "${DEMO_SLUG}" already exists — preserved`);
+  }
+
   console.log("\n✅ Seed completed successfully!");
 }
 
