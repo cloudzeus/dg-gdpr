@@ -12,6 +12,14 @@ describe("generateConsentToken", () => {
 });
 
 describe("getClientIp", () => {
+  it("prefers cf-connecting-ip over x-forwarded-for (Cloudflare)", () => {
+    const h = new Headers({ "cf-connecting-ip": "203.0.113.7", "x-forwarded-for": "172.68.63.36" });
+    expect(getClientIp(h)).toBe("203.0.113.7");
+  });
+  it("uses true-client-ip when cf-connecting-ip is absent", () => {
+    const h = new Headers({ "true-client-ip": "203.0.113.9", "x-forwarded-for": "172.68.63.36" });
+    expect(getClientIp(h)).toBe("203.0.113.9");
+  });
   it("reads the first x-forwarded-for entry", () => {
     const h = new Headers({ "x-forwarded-for": "1.2.3.4, 5.6.7.8" });
     expect(getClientIp(h)).toBe("1.2.3.4");
