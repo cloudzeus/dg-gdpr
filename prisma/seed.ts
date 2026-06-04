@@ -1,6 +1,8 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { PERSONAL_DATA_FIELDS } from "./personal-data-fields";
+import { WIKI_ARTICLES } from "./wiki-content";
+import { slugify } from "../src/lib/slug";
 
 const prisma = new PrismaClient();
 
@@ -421,6 +423,22 @@ async function main() {
   } else {
     console.log(`Demo ConsentProject "${DEMO_SLUG}" already exists — preserved`);
   }
+
+  // ── Wiki / User Guide articles ────────────────────────────────────────────
+  // Idempotent: create sets everything; update refreshes metadata but PRESERVES
+  // content (so screenshots embedded later via the Phase-2 script aren't wiped).
+  for (const a of WIKI_ARTICLES) {
+    const slug = slugify(a.title);
+    await prisma.wikiArticle.upsert({
+      where: { slug },
+      update: { title: a.title, category: a.category, categoryOrder: a.categoryOrder, order: a.order, excerpt: a.excerpt },
+      create: {
+        slug, title: a.title, category: a.category, categoryOrder: a.categoryOrder,
+        order: a.order, excerpt: a.excerpt, content: a.content, status: "PUBLISHED",
+      },
+    });
+  }
+  console.log(`Seeded ${WIKI_ARTICLES.length} wiki articles`);
 
   console.log("\n✅ Seed completed successfully!");
 }

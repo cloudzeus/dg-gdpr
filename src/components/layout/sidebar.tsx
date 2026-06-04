@@ -8,7 +8,7 @@ import {
   MdPersonOff, MdVerifiedUser, MdBusiness, MdWork, MdGroup,
   MdLibraryBooks, MdHandshake, MdDeviceHub, MdMenu, MdClose,
   MdChevronLeft, MdChevronRight, MdExpandMore, MdExpandLess,
-  MdVpnKey, MdAssignment,
+  MdVpnKey, MdAssignment, MdMenuBook,
 } from "react-icons/md";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
@@ -36,6 +36,7 @@ const navGroups: NavGroup[] = [
       { label: "Ανάπτυξη Λογισμικού", href: "/dev", icon: MdCode },
       { label: "VoIP & Τηλεφωνία", href: "/voip", icon: MdPhone },
       { label: "Εκπαίδευση", href: "/training", icon: MdSchool },
+      { label: "Οδηγός Χρήσης", href: "/wiki", icon: MdMenuBook },
       { label: "Αρχείο Ελέγχου", href: "/audit", icon: MdArticle },
     ],
   },
@@ -58,6 +59,7 @@ const navGroups: NavGroup[] = [
       { label: "Χρήστες", href: "/admin/users", icon: MdGroup },
       { label: "Πολιτικές & Έγγραφα", href: "/admin/policies", icon: MdLibraryBooks },
       { label: "Αιτήματα GDPR (DSR)", href: "/admin/dsr", icon: MdAssignment },
+      { label: "Οδηγός Χρήσης (Admin)", href: "/admin/wiki", icon: MdMenuBook },
       { label: "API Κλειδιά", href: "/admin/api-keys", icon: MdVpnKey },
       { label: "Εκπαίδευση (Admin)", href: "/admin/training", icon: MdSchool },
       { label: "Ρόλοι & Πρόσβαση", href: "/admin/roles", icon: MdVerifiedUser },

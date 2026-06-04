@@ -918,3 +918,28 @@ model ConsentRecord {
   @@index([subjectEmail])
   @@index([status])
 }
+
+// ─── Wiki / User Guide (Οδηγός Χρήσης) ────────────────────────────────────────
+
+enum WikiStatus {
+  DRAFT
+  PUBLISHED
+}
+
+model WikiArticle {
+  id            String     @id @default(cuid())
+  slug          String     @unique
+  title         String
+  category      String
+  categoryOrder Int        @default(0)
+  order         Int        @default(0)
+  icon          String?
+  excerpt       String?    @db.Text
+  content       String     @db.LongText
+  status        WikiStatus @default(PUBLISHED)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@index([category])
+  @@index([status])
+}
