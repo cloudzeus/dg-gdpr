@@ -349,6 +349,25 @@ async function main() {
   });
 
   console.log(`✓ Training modules seeded with sections, materials, questions`);
+
+  // ── Personal Data Fields (starter pack) ──────────────────────────────────
+  const starterFields = [
+    { key: "full_name", label: { el: "Ονοματεπώνυμο", en: "Full name" }, description: { el: "Το πλήρες όνομα του υποκειμένου.", en: "The data subject's full name." }, category: "IDENTITY", inputType: "TEXT" },
+    { key: "email", label: { el: "Email", en: "Email" }, description: { el: "Διεύθυνση ηλεκτρονικού ταχυδρομείου.", en: "Email address." }, category: "CONTACT", inputType: "EMAIL" },
+    { key: "phone", label: { el: "Τηλέφωνο", en: "Phone" }, description: { el: "Αριθμός τηλεφώνου επικοινωνίας.", en: "Contact phone number." }, category: "CONTACT", inputType: "PHONE" },
+    { key: "afm", label: { el: "ΑΦΜ", en: "Tax ID (AFM)" }, description: { el: "Αριθμός Φορολογικού Μητρώου.", en: "Greek tax registration number." }, category: "FINANCIAL", inputType: "TEXT" },
+    { key: "address", label: { el: "Διεύθυνση", en: "Address" }, description: { el: "Ταχυδρομική διεύθυνση.", en: "Postal address." }, category: "CONTACT", inputType: "TEXTAREA" },
+  ] as const;
+
+  for (const f of starterFields) {
+    await prisma.personalDataField.upsert({
+      where: { key: f.key },
+      update: {},
+      create: { key: f.key, label: f.label, description: f.description, category: f.category as never, inputType: f.inputType as never },
+    });
+  }
+  console.log(`Seeded ${starterFields.length} personal data fields`);
+
   console.log("\n✅ Seed completed successfully!");
 }
 
