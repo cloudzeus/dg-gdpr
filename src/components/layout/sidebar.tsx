@@ -40,6 +40,14 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
+    id: "consent",
+    label: "Συναινέσεις",
+    items: [
+      { label: "Πεδία Δεδομένων", href: "/consent/fields", icon: MdLibraryBooks },
+      { label: "Consent Projects", href: "/consent/projects", icon: MdAssignment },
+    ],
+  },
+  {
     id: "admin",
     label: "Διαχείριση",
     items: [
