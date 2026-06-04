@@ -57,6 +57,142 @@ const spec = {
           completedAt: { type: "string", format: "date-time", nullable: true },
         },
       },
+      PolicyType: {
+        type: "string",
+        enum: [
+          "SECURITY_POLICY", "ACCEPTABLE_USE", "DATA_RETENTION", "INCIDENT_RESPONSE", "BYOD",
+          "PASSWORD_POLICY", "BACKUP", "ACCESS_CONTROL", "PRIVACY_NOTICE", "COOKIE_POLICY",
+          "DATA_BREACH", "EMPLOYEE_HANDBOOK", "ETHICS_CODE", "CLEAR_DESK", "REMOTE_WORK",
+          "VENDOR_MANAGEMENT", "CHANGE_MANAGEMENT", "BUSINESS_CONTINUITY", "OTHER",
+        ],
+        description: "Κατηγορία πολιτικής ασφαλείας / διακυβέρνησης.",
+      },
+      PolicyStatus: { type: "string", enum: ["DRAFT", "UNDER_REVIEW", "ACTIVE", "ARCHIVED"] },
+      Policy: {
+        type: "object",
+        properties: {
+          id: { type: "string", example: "clx1234abcdef" },
+          title: { type: "string", example: "Πολιτική Ασφάλειας Πληροφοριών" },
+          type: { $ref: "#/components/schemas/PolicyType" },
+          version: { type: "string", example: "1.0" },
+          status: { $ref: "#/components/schemas/PolicyStatus" },
+          content: { type: "string", nullable: true, description: "Πλήρες περιεχόμενο της πολιτικής (HTML)." },
+          fileUrl: { type: "string", nullable: true, description: "Εξωτερικός σύνδεσμος αρχείου, αν υπάρχει." },
+          tags: { type: "array", items: { type: "string" }, nullable: true },
+          owner: {
+            type: "object", nullable: true,
+            properties: { name: { type: "string", nullable: true }, email: { type: "string", nullable: true } },
+          },
+          effectiveDate: { type: "string", format: "date", nullable: true },
+          reviewDate: { type: "string", format: "date", nullable: true },
+          createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" },
+        },
+      },
+      PolicyListResponse: {
+        type: "object",
+        properties: {
+          count: { type: "integer", example: 12 },
+          policies: { type: "array", items: { $ref: "#/components/schemas/Policy" } },
+        },
+      },
+      PolicyDetail: {
+        allOf: [
+          { $ref: "#/components/schemas/Policy" },
+          {
+            type: "object",
+            properties: {
+              history: {
+                type: "array",
+                description: "Ιστορικό εκδόσεων της πολιτικής.",
+                items: {
+                  type: "object",
+                  properties: {
+                    version: { type: "string" },
+                    changeNote: { type: "string", nullable: true },
+                    changedBy: { type: "string", nullable: true },
+                    createdAt: { type: "string", format: "date-time" },
+                  },
+                },
+              },
+            },
+          },
+        ],
+      },
+      RopaDepartment: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          department: { type: "string", example: "Ανθρώπινο Δυναμικό" },
+          icon: { type: "string", nullable: true },
+          entries: {
+            type: "array",
+            description: "Πίνακας δραστηριοτήτων επεξεργασίας του τμήματος (Άρθρο 30).",
+            items: { type: "object", additionalProperties: true },
+          },
+          createdAt: { type: "string", format: "date-time" },
+          updatedAt: { type: "string", format: "date-time" },
+        },
+      },
+      RopaListResponse: {
+        type: "object",
+        properties: {
+          count: { type: "integer", example: 5 },
+          departments: { type: "array", items: { $ref: "#/components/schemas/RopaDepartment" } },
+        },
+      },
+      RopaUpsertBody: {
+        type: "object",
+        required: ["department", "entries"],
+        properties: {
+          department: { type: "string", example: "Ανθρώπινο Δυναμικό", description: "Όνομα τμήματος (μοναδικό κλειδί — γίνεται upsert)." },
+          icon: { type: "string", nullable: true, example: "users" },
+          entries: {
+            type: "array",
+            description: "Πλήρης λίστα δραστηριοτήτων επεξεργασίας. Αντικαθιστά πλήρως το υπάρχον περιεχόμενο του τμήματος.",
+            items: { type: "object", additionalProperties: true },
+            example: [
+              { activity: "Μισθοδοσία", purpose: "Καταβολή αποδοχών", legalBasis: "Νομική υποχρέωση", dataCategories: ["Στοιχεία ταυτότητας", "Τραπεζικά"], retention: "5 έτη" },
+            ],
+          },
+        },
+      },
+      RopaUpsertResponse: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          department: { type: "string" },
+          icon: { type: "string", nullable: true },
+          entries: { type: "array", items: { type: "object", additionalProperties: true } },
+          entryCount: { type: "integer", example: 4 },
+          created: { type: "boolean", description: "true αν δημιουργήθηκε νέο τμήμα, false αν ενημερώθηκε υπάρχον." },
+          updatedAt: { type: "string", format: "date-time" },
+          message: { type: "string" },
+        },
+      },
+      OfficerRole: { type: "string", enum: ["DPO", "SECURITY_OFFICER", "COMPLIANCE_OFFICER"] },
+      Officer: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          name: { type: "string", nullable: true },
+          email: { type: "string", format: "email", nullable: true },
+          phone: { type: "string", nullable: true },
+          role: { $ref: "#/components/schemas/OfficerRole" },
+          roleLabel: { type: "string", example: "Υπεύθυνος Προστασίας Δεδομένων (DPO)" },
+          roleLabelEn: { type: "string", example: "Data Protection Officer" },
+          department: { type: "string", nullable: true },
+          position: { type: "string", nullable: true },
+          isActive: { type: "boolean" },
+        },
+      },
+      OfficerListResponse: {
+        type: "object",
+        properties: {
+          count: { type: "integer", example: 3 },
+          officers: { type: "array", items: { $ref: "#/components/schemas/Officer" } },
+        },
+      },
       Error: {
         type: "object",
         properties: { error: { type: "string" } },
@@ -110,10 +246,114 @@ const spec = {
         },
       },
     },
+    "/policies": {
+      get: {
+        summary: "List security & governance policies",
+        description: "Επιστρέφει τη λίστα των πολιτικών ασφαλείας μαζί με το πλήρες περιεχόμενό τους. Από προεπιλογή επιστρέφονται μόνο οι ΕΝΕΡΓΕΣ (ACTIVE) πολιτικές.",
+        operationId: "listPolicies",
+        tags: ["Policies"],
+        parameters: [
+          { name: "status", in: "query", required: false, schema: { type: "string", enum: ["DRAFT", "UNDER_REVIEW", "ACTIVE", "ARCHIVED", "ALL"], default: "ACTIVE" }, description: "Φίλτρο κατάστασης. Χρησιμοποίησε ALL για όλες." },
+          { name: "type", in: "query", required: false, schema: { $ref: "#/components/schemas/PolicyType" }, description: "Φίλτρο κατηγορίας πολιτικής." },
+        ],
+        responses: {
+          "200": { description: "Λίστα πολιτικών", content: { "application/json": { schema: { $ref: "#/components/schemas/PolicyListResponse" } } } },
+          "400": { description: "Validation error", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "401": { description: "Missing or invalid API key", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/policies/{id}": {
+      get: {
+        summary: "Get a single policy with its content & version history",
+        description: "Επιστρέφει μία πολιτική με το πλήρες περιεχόμενο και το ιστορικό εκδόσεών της.",
+        operationId: "getPolicy",
+        tags: ["Policies"],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        responses: {
+          "200": { description: "Η πολιτική", content: { "application/json": { schema: { $ref: "#/components/schemas/PolicyDetail" } } } },
+          "401": { description: "Missing or invalid API key", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "404": { description: "Policy not found", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/ropa": {
+      get: {
+        summary: "List the Record of Processing Activities (Article 30)",
+        description: "Επιστρέφει το Αρχείο Δραστηριοτήτων ομαδοποιημένο ανά τμήμα.",
+        operationId: "listRopa",
+        tags: ["RoPA"],
+        parameters: [
+          { name: "department", in: "query", required: false, schema: { type: "string" }, description: "Φίλτρο για συγκεκριμένο τμήμα." },
+        ],
+        responses: {
+          "200": { description: "Το Αρχείο Δραστηριοτήτων", content: { "application/json": { schema: { $ref: "#/components/schemas/RopaListResponse" } } } },
+          "401": { description: "Missing or invalid API key", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+      post: {
+        summary: "Send / upsert processing activities of a department",
+        description: "Στέλνει από εξωτερική εφαρμογή το Αρχείο Δραστηριοτήτων ενός τμήματος. Αν το τμήμα υπάρχει, αντικαθίσταται πλήρως (idempotent)· αλλιώς δημιουργείται.",
+        operationId: "upsertRopa",
+        tags: ["RoPA"],
+        requestBody: { required: true, content: { "application/json": { schema: { $ref: "#/components/schemas/RopaUpsertBody" } } } },
+        responses: {
+          "200": { description: "Τμήμα ενημερώθηκε", content: { "application/json": { schema: { $ref: "#/components/schemas/RopaUpsertResponse" } } } },
+          "201": { description: "Τμήμα δημιουργήθηκε", content: { "application/json": { schema: { $ref: "#/components/schemas/RopaUpsertResponse" } } } },
+          "400": { description: "Validation error", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "401": { description: "Missing or invalid API key", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
+    "/consent/projects": {
+      get: {
+        summary: "List consent projects",
+        security: [{ ApiKeyAuth: [] }],
+        responses: {
+          "200": { description: "Array of consent projects with counts" },
+          "401": { description: "Invalid API key" },
+        },
+      },
+    },
+    "/consent/projects/{slug}/records": {
+      get: {
+        summary: "List all consent records for a project (JSON export)",
+        security: [{ ApiKeyAuth: [] }],
+        parameters: [
+          { name: "slug", in: "path", required: true, schema: { type: "string" } },
+          { name: "status", in: "query", required: false, schema: { type: "string", enum: ["PENDING", "CONFIRMED", "WITHDRAWN"] } },
+        ],
+        responses: {
+          "200": { description: "Consent records" },
+          "401": { description: "Invalid API key" },
+          "404": { description: "Project not found" },
+        },
+      },
+    },
+    "/officers": {
+      get: {
+        summary: "List DPO, CISO and Compliance Officer",
+        description: "Επιστρέφει τα στοιχεία του Υπεύθυνου Προστασίας Δεδομένων (DPO), του Υπεύθυνου Ασφάλειας Πληροφοριών (CISO / SECURITY_OFFICER) και του Υπεύθυνου Συμμόρφωσης.",
+        operationId: "listOfficers",
+        tags: ["Officers"],
+        parameters: [
+          { name: "role", in: "query", required: false, schema: { $ref: "#/components/schemas/OfficerRole" }, description: "Φίλτρο για συγκεκριμένο ρόλο." },
+          { name: "includeInactive", in: "query", required: false, schema: { type: "boolean", default: false }, description: "Συμπερίληψη ανενεργών χρηστών." },
+        ],
+        responses: {
+          "200": { description: "Λίστα υπευθύνων", content: { "application/json": { schema: { $ref: "#/components/schemas/OfficerListResponse" } } } },
+          "400": { description: "Validation error", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+          "401": { description: "Missing or invalid API key", content: { "application/json": { schema: { $ref: "#/components/schemas/Error" } } } },
+        },
+      },
+    },
   },
   tags: [
     { name: "Requests", description: "Create and track GDPR data subject requests" },
     { name: "Portability", description: "Data portability export endpoints (Article 20)" },
+    { name: "Policies", description: "Λίστα και περιεχόμενο πολιτικών ασφαλείας" },
+    { name: "RoPA", description: "Αρχείο Δραστηριοτήτων Επεξεργασίας (Άρθρο 30) — ανάγνωση & αποστολή από εξωτερική εφαρμογή" },
+    { name: "Officers", description: "DPO, CISO & Υπεύθυνος Συμμόρφωσης" },
   ],
 };
 
