@@ -16,11 +16,12 @@ export default function WizardSignature({ project, fields, purposes }: CaptureTe
   const [signature, setSignature] = useState<string | null>(null);
   const [doneRef, setDoneRef] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [email, setEmail] = useState("");
   const [isPending, startTransition] = useTransition();
 
   function submit() {
     setError(null);
-    const subjectEmail = emailField ? values[emailField.key] ?? "" : "";
+    const subjectEmail = emailField ? values[emailField.key] ?? "" : email;
     const subjectPhone = phoneField ? values[phoneField.key] : undefined;
     startTransition(async () => {
       try {
@@ -58,6 +59,14 @@ export default function WizardSignature({ project, fields, purposes }: CaptureTe
             <p className={styles.sub}>Συμπληρώστε τα στοιχεία του πελάτη</p>
             <div className={styles.card}>
               <div className={styles.section}>
+                {!emailField && (
+                  <div className={styles.row}>
+                    <div className={styles.group}>
+                      <label className={styles.label}>Email <span className={styles.req}>*</span></label>
+                      <input className={styles.input} type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+                    </div>
+                  </div>
+                )}
                 {fields.map((f) => (
                   <div key={f.key} className={styles.row}>
                     <div className={styles.group}>
