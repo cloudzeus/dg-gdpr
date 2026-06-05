@@ -16,13 +16,21 @@ export function ConsentForm({ slug, fields, purposes }: { slug: string; fields: 
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
+  // The email/phone needed for the double opt-in are taken from configured
+  // fields when the project has them — otherwise we render dedicated inputs.
+  // This avoids asking for email/phone twice.
+  const emailField = fields.find((f) => f.inputType === "EMAIL");
+  const phoneField = fields.find((f) => f.inputType === "PHONE");
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true); setError("");
     try {
+      const subjectEmail = emailField ? (values[emailField.key] ?? "") : email;
+      const subjectPhone = (phoneField ? values[phoneField.key] : phone) || undefined;
       const res = await fetch(`/api/public/consent/${slug}/submit`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subjectEmail: email, subjectPhone: phone || undefined, values, purposeConsents: consents, locale: "el" }),
+        body: JSON.stringify({ subjectEmail, subjectPhone, values, purposeConsents: consents, locale: "el" }),
       });
       if (!res.ok) { setError((await res.json()).error ?? "Σφάλμα"); return; }
       setDone(true);
@@ -33,24 +41,32 @@ export function ConsentForm({ slug, fields, purposes }: { slug: string; fields: 
 
   return (
     <form onSubmit={submit} className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium mb-1">Email *</label>
-        <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full border rounded px-3 py-2 text-sm" />
-      </div>
-      <div>
-        <label className="block text-sm font-medium mb-1">Τηλέφωνο</label>
-        <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full border rounded px-3 py-2 text-sm" />
-      </div>
-      {fields.map((f) => (
-        <div key={f.key}>
-          <label className="block text-sm font-medium mb-1">{f.label}{f.required ? " *" : ""}</label>
-          {f.inputType === "TEXTAREA" ? (
-            <textarea required={f.required} value={values[f.key] ?? ""} onChange={(e) => setValues({ ...values, [f.key]: e.target.value })} className="w-full border rounded px-3 py-2 text-sm" />
-          ) : (
-            <input type={HTML_TYPE[f.inputType] ?? "text"} required={f.required} value={values[f.key] ?? ""} onChange={(e) => setValues({ ...values, [f.key]: e.target.value })} className="w-full border rounded px-3 py-2 text-sm" />
-          )}
+      {/* Dedicated email/phone inputs only when the project doesn't configure them as fields */}
+      {!emailField && (
+        <div>
+          <label className="block text-sm font-medium mb-1">Email *</label>
+          <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full border rounded px-3 py-2 text-sm" />
         </div>
-      ))}
+      )}
+      {!phoneField && (
+        <div>
+          <label className="block text-sm font-medium mb-1">Τηλέφωνο</label>
+          <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full border rounded px-3 py-2 text-sm" />
+        </div>
+      )}
+      {fields.map((f) => {
+        const required = f.required || f.inputType === "EMAIL";
+        return (
+          <div key={f.key}>
+            <label className="block text-sm font-medium mb-1">{f.label}{required ? " *" : ""}</label>
+            {f.inputType === "TEXTAREA" ? (
+              <textarea required={required} value={values[f.key] ?? ""} onChange={(e) => setValues({ ...values, [f.key]: e.target.value })} className="w-full border rounded px-3 py-2 text-sm" />
+            ) : (
+              <input type={HTML_TYPE[f.inputType] ?? "text"} required={required} value={values[f.key] ?? ""} onChange={(e) => setValues({ ...values, [f.key]: e.target.value })} className="w-full border rounded px-3 py-2 text-sm" />
+            )}
+          </div>
+        );
+      })}
       <div className="space-y-2 border-t pt-4">
         <p className="text-sm font-medium">Σκοποί επεξεργασίας</p>
         {purposes.map((p) => (
