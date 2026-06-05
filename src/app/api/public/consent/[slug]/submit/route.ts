@@ -75,7 +75,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ slu
     });
   }
 
-  const confirmUrl = `${getBaseUrl(req)}/c/${slug}/confirm/${verifyToken}`;
+  // Point at the API route — it sets status=CONFIRMED (records IP/time) and then
+  // redirects to /c/{slug}/confirm/{token} (the result page). Linking the page
+  // directly would leave the record PENDING, so it would always show "invalid/expired".
+  const confirmUrl = `${getBaseUrl(req)}/api/public/consent/confirm/${verifyToken}`;
   const mail = consentVerifyEmail({ projectName: project.name, confirmUrl });
   await sendMail({ to: email, subject: mail.subject, html: mail.html });
   if ((project.confirmationMethod === "SMS" || project.confirmationMethod === "BOTH") && body.subjectPhone) {
