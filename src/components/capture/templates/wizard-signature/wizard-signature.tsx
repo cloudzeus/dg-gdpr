@@ -8,6 +8,12 @@ import styles from "./wizard-signature.module.css";
 
 const HTML_TYPE: Record<string, string> = { TEXT: "text", EMAIL: "email", PHONE: "tel", DATE: "date", NUMBER: "number" };
 
+const BRAND_CDN = "https://dgsoft.b-cdn.net/logos/brands";
+const BRANDS: [string, string][] = [
+  ["KOSMOCAR", "kosmocar.png"], ["Volkswagen", "vw.png"], ["Audi", "audi.png"],
+  ["Škoda", "skoda.png"], ["Bentley", "bentley.png"], ["Lamborghini", "lamborghini.png"], ["Ducati", "ducati.png"],
+];
+
 const I = {
   user: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>,
   shield: <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>,
@@ -18,7 +24,7 @@ const I = {
   back: <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>,
 };
 
-export default function WizardSignature({ project, fields, purposes, logoUrl }: CaptureTemplateProps) {
+export default function WizardSignature({ project, fields, purposes }: CaptureTemplateProps) {
   const { emailField, phoneField } = findContactFields(fields);
   const [step, setStep] = useState(0); // 0 details, 1 consent, 2 signature, 3 done
   const [values, setValues] = useState<Record<string, string>>({});
@@ -59,7 +65,7 @@ export default function WizardSignature({ project, fields, purposes, logoUrl }: 
         <div className={styles.headerLeft}>
           <a href="/" className={styles.back}>{I.back} Κεντρικό</a>
           <div className={styles.headerDivider} />
-          {logoUrl ? <img src={logoUrl} alt="" className={styles.logo} /> : <span className={styles.headerTitle}>{project.name}</span>}
+          <img src={`${BRAND_CDN}/kosmocar.png`} alt="KOSMOCAR" className={styles.logo} />
         </div>
         <div className={styles.steps}>
           <span className={stepClass(0)}>{step > 0 ? I.checkSm : "1"}</span>
@@ -197,6 +203,10 @@ export default function WizardSignature({ project, fields, purposes, logoUrl }: 
           )}
         </footer>
       )}
+
+      <div className={styles.brandStrip}>
+        {BRANDS.map(([alt, file]) => <img key={file} src={`${BRAND_CDN}/${file}`} alt={alt} />)}
+      </div>
     </div>
   );
 }
