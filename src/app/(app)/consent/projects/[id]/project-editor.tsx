@@ -16,10 +16,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { loc, type LocalizedText } from "@/lib/localized";
+import { TEMPLATE_OPTIONS } from "@/components/capture/templates";
 
 interface ProjectData {
   id: string; name: string; slug: string; description: LocalizedText;
-  status: string; confirmationMethod: string;
+  status: string; confirmationMethod: string; layoutTemplate: string;
   fields: { fieldId: string; required: boolean; field: { id: string; key: string; label: LocalizedText; isSpecialCategory?: boolean } }[];
   purposes: { id: string; label: LocalizedText; description: LocalizedText; legalBasis: string; required: boolean }[];
 }
@@ -87,6 +88,7 @@ export function ProjectEditor({ project, allFields, policies }: { project: Proje
   const [descEn, setDescEn] = useState(project.description?.en ?? "");
   const [status, setStatus] = useState(project.status);
   const [method, setMethod] = useState(project.confirmationMethod);
+  const [layout, setLayout] = useState(project.layoutTemplate ?? "DEFAULT");
   const [fields, setFields] = useState<SelectedField[]>(
     project.fields.map((f) => ({ fieldId: f.fieldId, required: f.required, key: f.field.key, label: f.field.label, isSpecialCategory: f.field.isSpecialCategory })),
   );
@@ -119,7 +121,7 @@ export function ProjectEditor({ project, allFields, policies }: { project: Proje
     setSaving(true); setSaved(false);
     try {
       await updateConsentProject(project.id, {
-        name, description: { el: descEl, en: descEn }, status: status as never, confirmationMethod: method as never,
+        name, description: { el: descEl, en: descEn }, status: status as never, confirmationMethod: method as never, layoutTemplate: layout,
       });
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
@@ -220,6 +222,12 @@ export function ProjectEditor({ project, allFields, policies }: { project: Proje
               <label className="mb-1 block text-xs font-medium text-neutral-600">Τρόπος επιβεβαίωσης (double opt-in)</label>
               <select className="h-9 w-full rounded-md border border-neutral-200 bg-white px-3 text-sm" value={method} onChange={(e) => setMethod(e.target.value)}>
                 {METHOD_OPTIONS.map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
+              </select>
+            </div>
+            <div className="mt-3">
+              <label className="mb-1 block text-xs font-medium text-neutral-500">Layout οθονών (εσωτερική καταχώρηση)</label>
+              <select className="h-9 w-full rounded-md border border-neutral-200 bg-white px-3 text-sm" value={layout} onChange={(e) => setLayout(e.target.value)}>
+                {TEMPLATE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </div>
           </div>

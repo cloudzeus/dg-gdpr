@@ -124,6 +124,7 @@ export async function updateConsentProject(
     description: LocalizedText;
     status: ConsentProjectStatus;
     confirmationMethod: ConfirmationMethod;
+    layoutTemplate: string;
   }>,
 ) {
   await requireUser();
