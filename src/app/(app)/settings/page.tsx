@@ -4,8 +4,10 @@ import { Topbar } from "@/components/layout/topbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ProfileEditor } from "@/components/modules/profile-editor";
-import { Shield, Building2, GraduationCap, ChevronRight } from "lucide-react";
+import { Shield, Building2, GraduationCap, ChevronRight, KeyRound } from "lucide-react";
 import Link from "next/link";
+import { getLicense } from "@/actions/license";
+import { LicenseEditor } from "@/components/modules/license-editor";
 
 export default async function SettingsPage() {
   const session = await auth();
@@ -18,6 +20,7 @@ export default async function SettingsPage() {
       email: true,
       image: true,
       role: true,
+      isSuperAdmin: true,
       phone: true,
       address: true,
       department: { select: { id: true, name: true } },
@@ -26,6 +29,7 @@ export default async function SettingsPage() {
   });
 
   if (!user) return null;
+  const license = user.isSuperAdmin ? await getLicense() : null;
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -77,6 +81,20 @@ export default async function SettingsPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* License config — super-admin only */}
+          {user.isSuperAdmin && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <KeyRound className="h-4 w-4 text-primary" /> Άδεια Χρήσης Εφαρμογής
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <LicenseEditor license={license} />
+              </CardContent>
+            </Card>
+          )}
 
           {/* My training */}
           <Link href="/my/training">
