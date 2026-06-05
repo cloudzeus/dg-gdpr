@@ -24,6 +24,8 @@ export default async function CaptureRunPage({ params }: { params: Promise<{ lay
   }));
 
   const org = await prisma.organization.findFirst({ select: { logo: true } });
+  const cdn = process.env.BUNNY_CDN_HOSTNAME ?? "dgsoft.b-cdn.net";
+  const logoUrl = org?.logo || `https://${cdn}/logos/org-logo.png`;
 
-  return <Template project={{ slug, name: project.name, description: loc(project.description, "el") }} fields={fields} purposes={purposes} logoUrl={org?.logo ?? null} />;
+  return <Template project={{ slug, name: project.name, description: loc(project.description, "el") }} fields={fields} purposes={purposes} logoUrl={logoUrl} />;
 }

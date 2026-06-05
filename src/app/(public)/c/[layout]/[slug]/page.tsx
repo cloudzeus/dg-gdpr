@@ -22,9 +22,11 @@ export default async function PublicConsentPage({ params }: { params: Promise<{ 
   }));
 
   const org = await prisma.organization.findFirst({ select: { logo: true } });
+  const cdn = process.env.BUNNY_CDN_HOSTNAME ?? "dgsoft.b-cdn.net";
+  const logoUrl = org?.logo || `https://${cdn}/logos/org-logo.png`;
 
   // The URL's layout folder selects the template (same components, different
   // style). It renders the full layout: fields, consent, signature, confirmation.
   const Template = resolveTemplate(layout);
-  return <Template project={{ slug, name: project.name, description: loc(project.description, "el") }} fields={fields} purposes={purposes} logoUrl={org?.logo ?? null} />;
+  return <Template project={{ slug, name: project.name, description: loc(project.description, "el") }} fields={fields} purposes={purposes} logoUrl={logoUrl} />;
 }
