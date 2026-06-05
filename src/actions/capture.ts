@@ -8,7 +8,8 @@ import { getClientIp, generateConsentToken } from "@/lib/consent-token";
 import { uploadToBunny } from "@/lib/bunny";
 import { dataUrlToBuffer } from "@/lib/data-url";
 import { sendMail } from "@/lib/mail";
-import { consentConfirmedEmail } from "@/lib/consent-email";
+import { consentVerifyEmail } from "@/lib/consent-email";
+import { getBaseUrlFromHeaders } from "@/lib/base-url";
 
 interface CaptureInput {
   slug: string;
@@ -41,7 +42,9 @@ export async function captureConsent(input: CaptureInput): Promise<{ recordId: s
   }
 
   const hdrs = await headers();
-  const now = new Date();
+  // Double opt-in: store the consent + signature as PENDING, then email a
+  // verification link. The customer clicks it to set the record CONFIRMED.
+  const verifyToken = generateConsentToken();
   const record = await prisma.consentRecord.create({
     data: {
       projectId: project.id,
@@ -49,19 +52,18 @@ export async function captureConsent(input: CaptureInput): Promise<{ recordId: s
       subjectPhone: input.subjectPhone?.trim() || null,
       values: input.values as never,
       purposeConsents: input.purposeConsents as never,
-      status: "CONFIRMED",
-      verifyToken: generateConsentToken(),
-      confirmedAt: now,
+      status: "PENDING",
+      verifyToken,
       ipAddress: getClientIp(hdrs),
       userAgent: hdrs.get("user-agent") ?? null,
-      confirmationChannel: "IN_PERSON",
       signatureUrl,
       capturedById,
       locale: "el",
     },
   });
 
-  const mail = consentConfirmedEmail({ projectName: project.name, confirmedAt: now });
+  const confirmUrl = `${getBaseUrlFromHeaders(hdrs)}/api/public/consent/confirm/${verifyToken}`;
+  const mail = consentVerifyEmail({ projectName: project.name, confirmUrl });
   await sendMail({ to: email, subject: mail.subject, html: mail.html });
 
   await logAction({ action: "CAPTURE", entity: "ConsentRecord", entityId: record.id });

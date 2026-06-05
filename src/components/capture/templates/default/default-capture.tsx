@@ -35,8 +35,8 @@ export default function DefaultCapture({ project, fields, purposes }: CaptureTem
     return (
       <div className={styles.wrap}>
         <div className={styles.card}>
-          <p className={styles.title}>Καταχωρήθηκε ✔</p>
-          <p className={styles.desc}>Αριθμός αναφοράς: <strong>{doneRef}</strong></p>
+          <p className={styles.title}>Σχεδόν έτοιμα ✔</p>
+          <p className={styles.desc}>Σας στείλαμε email επιβεβαίωσης. Πατήστε τον σύνδεσμο για να ολοκληρωθεί η συναίνεση.<br />Αριθμός αναφοράς: <strong>{doneRef}</strong></p>
         </div>
       </div>
     );

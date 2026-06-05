@@ -168,10 +168,10 @@ export default function WizardSignature({ project, fields, purposes }: CaptureTe
 
         {step === 3 && (
           <div className={styles.center}>
-            <div className={styles.successBadge}>{I.checkSm}<span>Επιτυχής Καταχώρηση</span></div>
+            <div className={styles.successBadge}>{I.checkSm}<span>Στάλθηκε επιβεβαίωση</span></div>
             <div className={styles.successIcon}>{I.check}</div>
             <h1 className={styles.h1}>Ευχαριστούμε</h1>
-            <p className={styles.sub}>Η συναίνεση καταχωρήθηκε με επιτυχία</p>
+            <p className={styles.sub}>Σας στείλαμε email επιβεβαίωσης στο <strong>{subjectEmail || "—"}</strong>. Πατήστε τον σύνδεσμο για να ολοκληρωθεί η συναίνεση.</p>
             <div className={styles.card} style={{ textAlign: "left" }}>
               <div className={styles.cardBody}>
                 <div className={styles.detailRow}><span className={styles.detailLabel}>Email</span><span className={styles.detailValue}>{subjectEmail || "—"}</span></div>
