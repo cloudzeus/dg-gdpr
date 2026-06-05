@@ -10,10 +10,10 @@ export default async function CapturePickerPage() {
   const projects = await prisma.consentProject.findMany({
     where: { status: "ACTIVE" },
     orderBy: { name: "asc" },
-    select: { id: true, name: true, slug: true, description: true },
+    select: { id: true, name: true, slug: true, description: true, layoutTemplate: true },
   });
 
-  if (projects.length === 1) redirect(`/capture/${projects[0].slug}`);
+  if (projects.length === 1) redirect(`/capture/${projects[0].layoutTemplate}/${projects[0].slug}`);
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -29,7 +29,7 @@ export default async function CapturePickerPage() {
               {projects.map((p) => (
                 <Link
                   key={p.id}
-                  href={`/capture/${p.slug}`}
+                  href={`/capture/${p.layoutTemplate}/${p.slug}`}
                   className="rounded-xl border bg-white p-5 shadow-sm transition-shadow hover:shadow-md"
                   style={{ borderColor: "#EDEBE9" }}
                 >
