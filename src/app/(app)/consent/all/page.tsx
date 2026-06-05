@@ -1,16 +1,11 @@
 import Link from "next/link";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { listAllConsentRecords } from "@/actions/consent";
+import { loc } from "@/lib/localized";
 import { Topbar } from "@/components/layout/topbar";
 import { AppFooter } from "@/components/layout/app-footer";
-import { Badge } from "@/components/ui/badge";
-import { formatDateTime } from "@/lib/utils";
-
-const STATUS_META: Record<string, { label: string; variant: "secondary" | "success" | "outline" | "destructive" }> = {
-  PENDING: { label: "Εκκρεμεί", variant: "secondary" },
-  CONFIRMED: { label: "Επιβεβαιωμένη", variant: "success" },
-  WITHDRAWN: { label: "Ανακλήθηκε", variant: "destructive" },
-};
+import { ConsentAllTable, type ConsentRow } from "@/components/modules/consent-all-table";
 
 const FILTERS: { key: "" | "PENDING" | "CONFIRMED" | "WITHDRAWN"; label: string; countKey: string }[] = [
   { key: "", label: "Όλες", countKey: "ALL" },
@@ -25,6 +20,49 @@ export default async function AllConsentsPage({ searchParams }: { searchParams: 
   const session = await auth();
   const { records, counts } = await listAllConsentRecords(status);
 
+  // Label maps (field keys → labels, purpose ids → labels) per project.
+  const projects = await prisma.consentProject.findMany({
+    select: {
+      id: true,
+      fields: { select: { field: { select: { key: true, label: true } } }, orderBy: { order: "asc" } },
+      purposes: { select: { id: true, label: true }, orderBy: { order: "asc" } },
+    },
+  });
+  const fieldDefsByProject = new Map<string, { key: string; label: string }[]>();
+  const purposeDefsByProject = new Map<string, { id: string; label: string }[]>();
+  for (const p of projects) {
+    fieldDefsByProject.set(p.id, p.fields.map((f) => ({ key: f.field.key, label: loc(f.field.label, "el") })));
+    purposeDefsByProject.set(p.id, p.purposes.map((pp) => ({ id: pp.id, label: loc(pp.label, "el") })));
+  }
+
+  // Captured-by employee names.
+  const capturerIds = [...new Set(records.map((r) => r.capturedById).filter(Boolean) as string[])];
+  const capturers = capturerIds.length
+    ? await prisma.user.findMany({ where: { id: { in: capturerIds } }, select: { id: true, name: true, email: true } })
+    : [];
+  const nameById = new Map(capturers.map((u) => [u.id, u.name ?? u.email ?? u.id]));
+
+  const rows: ConsentRow[] = records.map((r) => ({
+    id: r.id,
+    projectId: r.project.id,
+    projectName: r.project.name,
+    email: r.subjectEmail,
+    phone: r.subjectPhone,
+    status: r.status,
+    confirmedAt: r.confirmedAt ? r.confirmedAt.toISOString() : null,
+    withdrawnAt: r.withdrawnAt ? r.withdrawnAt.toISOString() : null,
+    createdAt: r.createdAt.toISOString(),
+    ipAddress: r.ipAddress,
+    userAgent: r.userAgent,
+    confirmationChannel: r.confirmationChannel,
+    signatureUrl: r.signatureUrl,
+    capturedByName: r.capturedById ? nameById.get(r.capturedById) ?? null : null,
+    values: (r.values ?? {}) as Record<string, unknown>,
+    purposeConsents: (r.purposeConsents ?? {}) as Record<string, boolean>,
+    fieldDefs: fieldDefsByProject.get(r.project.id) ?? [],
+    purposeDefs: purposeDefsByProject.get(r.project.id) ?? [],
+  }));
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <Topbar
@@ -37,7 +75,7 @@ export default async function AllConsentsPage({ searchParams }: { searchParams: 
           <div className="mb-4">
             <h1 className="text-2xl font-semibold" style={{ color: "#201F1E" }}>Όλες οι Συναινέσεις</h1>
             <p className="mt-1 text-sm" style={{ color: "#605E5C" }}>
-              Συγκεντρωτική προβολή όλων των project. Το φίλτρο «Ανακλήσεις» δείχνει όσους έκαναν unsubscribe.
+              Συγκεντρωτική προβολή όλων των project. Κάθε γραμμή ανοίγει με όλα τα στοιχεία και τις αποδείξεις (υπογραφή, IP, κανάλι). Το φίλτρο «Ανακλήσεις» δείχνει όσους έκαναν unsubscribe.
             </p>
           </div>
 
@@ -72,44 +110,7 @@ export default async function AllConsentsPage({ searchParams }: { searchParams: 
             })}
           </div>
 
-          <div className="overflow-hidden rounded-lg border bg-white shadow-sm" style={{ borderColor: "#EDEBE9" }}>
-            <table className="w-full text-sm">
-              <thead className="bg-neutral-50 text-left text-xs uppercase tracking-wide text-neutral-500">
-                <tr>
-                  <th className="px-4 py-2.5 font-medium">Project</th>
-                  <th className="px-4 py-2.5 font-medium">Email</th>
-                  <th className="px-4 py-2.5 font-medium">Τηλέφωνο</th>
-                  <th className="px-4 py-2.5 font-medium">Κατάσταση</th>
-                  <th className="px-4 py-2.5 font-medium">Επιβεβαίωση</th>
-                  <th className="px-4 py-2.5 font-medium">Ανάκληση</th>
-                  <th className="px-4 py-2.5 font-medium">Δημιουργία</th>
-                </tr>
-              </thead>
-              <tbody>
-                {records.map((r) => {
-                  const meta = STATUS_META[r.status] ?? STATUS_META.PENDING;
-                  return (
-                    <tr key={r.id} className="border-t border-neutral-100 hover:bg-neutral-50">
-                      <td className="px-4 py-3">
-                        <Link href={`/consent/projects/${r.project.id}/records`} className="font-medium text-[#0078D4] hover:underline">
-                          {r.project.name}
-                        </Link>
-                      </td>
-                      <td className="px-4 py-3 text-neutral-800">{r.subjectEmail}</td>
-                      <td className="px-4 py-3 text-neutral-600">{r.subjectPhone ?? "—"}</td>
-                      <td className="px-4 py-3"><Badge variant={meta.variant}>{meta.label}</Badge></td>
-                      <td className="px-4 py-3 text-neutral-600">{r.confirmedAt ? formatDateTime(r.confirmedAt) : "—"}</td>
-                      <td className="px-4 py-3 text-neutral-600">{r.withdrawnAt ? formatDateTime(r.withdrawnAt) : "—"}</td>
-                      <td className="px-4 py-3 text-neutral-500">{formatDateTime(r.createdAt)}</td>
-                    </tr>
-                  );
-                })}
-                {records.length === 0 && (
-                  <tr><td className="px-4 py-10 text-center text-sm text-neutral-400" colSpan={7}>Καμία εγγραφή για αυτό το φίλτρο.</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          <ConsentAllTable rows={rows} />
 
           <AppFooter />
         </div>
