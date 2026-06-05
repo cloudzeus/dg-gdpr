@@ -244,5 +244,27 @@ export async function resendConsentLink(id: string) {
   return { success: true };
 }
 
+/**
+ * All consent records across every project, optionally filtered by status,
+ * plus per-status counts. Powers the global consents / unsubscribes page.
+ */
+export async function listAllConsentRecords(status?: "PENDING" | "CONFIRMED" | "WITHDRAWN") {
+  await requireUser();
+  const [records, grouped] = await Promise.all([
+    prisma.consentRecord.findMany({
+      where: status ? { status } : {},
+      orderBy: { createdAt: "desc" },
+      include: { project: { select: { id: true, name: true, slug: true } } },
+    }),
+    prisma.consentRecord.groupBy({ by: ["status"], _count: { _all: true } }),
+  ]);
+  const counts = { ALL: 0, PENDING: 0, CONFIRMED: 0, WITHDRAWN: 0 } as Record<string, number>;
+  for (const g of grouped) {
+    counts[g.status] = g._count._all;
+    counts.ALL += g._count._all;
+  }
+  return { records, counts };
+}
+
 // Re-export for the public submit route (token generated server-side)
 export { generateConsentToken };

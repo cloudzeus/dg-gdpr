@@ -11,6 +11,8 @@ export default async function PublicConsentPage({ params }: { params: Promise<{ 
   });
   if (!project || project.status !== "ACTIVE") notFound();
 
+  const description = loc(project.description, "el");
+
   const fields = project.fields.map((pf) => ({
     key: pf.field.key,
     label: loc(pf.field.label, "el"),
@@ -22,10 +24,15 @@ export default async function PublicConsentPage({ params }: { params: Promise<{ 
   }));
 
   return (
-    <div className="bg-white border rounded-lg p-6 shadow-sm">
-      <h1 className="text-xl font-semibold mb-1">{project.name}</h1>
-      <p className="text-sm text-gray-500 mb-6">{loc(project.description, "el")}</p>
-      <ConsentForm slug={slug} fields={fields} purposes={purposes} />
+    <div className="overflow-hidden rounded-xl border bg-white shadow-sm" style={{ borderColor: "#EDEBE9" }}>
+      <div style={{ height: 4, background: "#0078D4" }} />
+      <div className="p-6 sm:p-7">
+        <div className="mb-5 border-b pb-4" style={{ borderColor: "#EDEBE9" }}>
+          <h1 className="text-[22px] font-bold tracking-tight" style={{ color: "#201F1E" }}>{project.name}</h1>
+          {description && <p className="mt-1.5 text-sm leading-relaxed" style={{ color: "#605E5C" }}>{description}</p>}
+        </div>
+        <ConsentForm slug={slug} fields={fields} purposes={purposes} />
+      </div>
     </div>
   );
 }

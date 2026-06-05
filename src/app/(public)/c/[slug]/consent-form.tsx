@@ -45,13 +45,13 @@ export function ConsentForm({ slug, fields, purposes }: { slug: string; fields: 
       {!emailField && (
         <div>
           <label className="block text-sm font-medium mb-1">Email *</label>
-          <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full border rounded px-3 py-2 text-sm" />
+          <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full rounded-md border border-[#8a8886] bg-white px-3 py-2 text-sm text-[#201F1E] outline-none transition-shadow placeholder:text-[#a19f9d] focus:border-[#0078D4] focus:ring-2 focus:ring-[#0078D4]/25" />
         </div>
       )}
       {!phoneField && (
         <div>
           <label className="block text-sm font-medium mb-1">Τηλέφωνο</label>
-          <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full border rounded px-3 py-2 text-sm" />
+          <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full rounded-md border border-[#8a8886] bg-white px-3 py-2 text-sm text-[#201F1E] outline-none transition-shadow placeholder:text-[#a19f9d] focus:border-[#0078D4] focus:ring-2 focus:ring-[#0078D4]/25" />
         </div>
       )}
       {fields.map((f) => {
@@ -60,24 +60,37 @@ export function ConsentForm({ slug, fields, purposes }: { slug: string; fields: 
           <div key={f.key}>
             <label className="block text-sm font-medium mb-1">{f.label}{required ? " *" : ""}</label>
             {f.inputType === "TEXTAREA" ? (
-              <textarea required={required} value={values[f.key] ?? ""} onChange={(e) => setValues({ ...values, [f.key]: e.target.value })} className="w-full border rounded px-3 py-2 text-sm" />
+              <textarea required={required} value={values[f.key] ?? ""} onChange={(e) => setValues({ ...values, [f.key]: e.target.value })} className="w-full rounded-md border border-[#8a8886] bg-white px-3 py-2 text-sm text-[#201F1E] outline-none transition-shadow placeholder:text-[#a19f9d] focus:border-[#0078D4] focus:ring-2 focus:ring-[#0078D4]/25" />
             ) : (
-              <input type={HTML_TYPE[f.inputType] ?? "text"} required={required} value={values[f.key] ?? ""} onChange={(e) => setValues({ ...values, [f.key]: e.target.value })} className="w-full border rounded px-3 py-2 text-sm" />
+              <input type={HTML_TYPE[f.inputType] ?? "text"} required={required} value={values[f.key] ?? ""} onChange={(e) => setValues({ ...values, [f.key]: e.target.value })} className="w-full rounded-md border border-[#8a8886] bg-white px-3 py-2 text-sm text-[#201F1E] outline-none transition-shadow placeholder:text-[#a19f9d] focus:border-[#0078D4] focus:ring-2 focus:ring-[#0078D4]/25" />
             )}
           </div>
         );
       })}
-      <div className="space-y-2 border-t pt-4">
-        <p className="text-sm font-medium">Σκοποί επεξεργασίας</p>
+      <div className="space-y-2 border-t pt-4" style={{ borderColor: "#EDEBE9" }}>
+        <p className="text-sm font-semibold" style={{ color: "#201F1E" }}>Σκοποί επεξεργασίας</p>
         {purposes.map((p) => (
-          <label key={p.id} className="flex items-start gap-2 text-sm">
-            <input type="checkbox" className="mt-1" checked={consents[p.id] ?? false} onChange={(e) => setConsents({ ...consents, [p.id]: e.target.checked })} />
-            <span><strong>{p.label}{p.required ? " *" : ""}</strong><br /><span className="text-gray-500">{p.description}</span></span>
+          <label
+            key={p.id}
+            className="flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 text-sm transition-colors hover:bg-[#faf9f8]"
+            style={{ borderColor: "#EDEBE9" }}
+          >
+            <input type="checkbox" className="mt-0.5 h-4 w-4 accent-[#0078D4]" checked={consents[p.id] ?? false} onChange={(e) => setConsents({ ...consents, [p.id]: e.target.checked })} />
+            <span>
+              <strong style={{ color: "#201F1E" }}>{p.label}{p.required ? " *" : ""}</strong>
+              {p.description && <><br /><span style={{ color: "#605E5C" }}>{p.description}</span></>}
+            </span>
           </label>
         ))}
       </div>
-      {error && <p className="text-sm text-red-600">{error}</p>}
-      <button type="submit" disabled={busy} className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:opacity-50">Υποβολή συναίνεσης</button>
+      {error && <p className="rounded-md border border-[#f3d6d8] bg-[#fdf3f4] px-3 py-2 text-sm text-[#a4262c]">{error}</p>}
+      <button
+        type="submit"
+        disabled={busy}
+        className="w-full rounded-md bg-[#0078D4] py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#106EBE] active:bg-[#005A9E] disabled:opacity-50"
+      >
+        {busy ? "Υποβολή…" : "Υποβολή συναίνεσης"}
+      </button>
     </form>
   );
 }

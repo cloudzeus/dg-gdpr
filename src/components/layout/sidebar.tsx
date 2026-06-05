@@ -8,7 +8,7 @@ import {
   MdPersonOff, MdVerifiedUser, MdBusiness, MdWork, MdGroup,
   MdLibraryBooks, MdHandshake, MdDeviceHub, MdMenu, MdClose,
   MdChevronLeft, MdChevronRight, MdExpandMore, MdExpandLess,
-  MdVpnKey, MdAssignment, MdMenuBook, MdGavel,
+  MdVpnKey, MdAssignment, MdMenuBook, MdGavel, MdHowToReg,
 } from "react-icons/md";
 import { LicenseModal } from "@/components/modules/license-modal";
 import { cn } from "@/lib/utils";
@@ -48,6 +48,7 @@ const navGroups: NavGroup[] = [
     items: [
       { label: "Πεδία Δεδομένων", href: "/consent/fields", icon: MdLibraryBooks },
       { label: "Consent Projects", href: "/consent/projects", icon: MdAssignment },
+      { label: "Όλες οι Συναινέσεις", href: "/consent/all", icon: MdHowToReg },
     ],
   },
   {
