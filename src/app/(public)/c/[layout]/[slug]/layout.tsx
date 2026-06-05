@@ -1,13 +1,4 @@
-import { resolvePublicTheme } from "@/components/public-themes";
-
-export default async function PublicConsentLayout({
-  children,
-  params,
-}: {
-  children: React.ReactNode;
-  params: Promise<{ layout: string }>;
-}) {
-  const { layout } = await params;
-  const Theme = resolvePublicTheme(layout);
-  return <Theme>{children}</Theme>;
+export default function PublicConsentLayout({ children }: { children: React.ReactNode }) {
+  // The selected template renders the full self-contained layout; no app chrome.
+  return <>{children}</>;
 }

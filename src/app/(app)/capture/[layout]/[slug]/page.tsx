@@ -23,5 +23,7 @@ export default async function CaptureRunPage({ params }: { params: Promise<{ lay
     id: p.id, label: loc(p.label, "el"), description: loc(p.description, "el"), required: p.required,
   }));
 
-  return <Template project={{ slug, name: project.name, description: loc(project.description, "el") }} fields={fields} purposes={purposes} />;
+  const org = await prisma.organization.findFirst({ select: { logo: true } });
+
+  return <Template project={{ slug, name: project.name, description: loc(project.description, "el") }} fields={fields} purposes={purposes} logoUrl={org?.logo ?? null} />;
 }

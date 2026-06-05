@@ -5,6 +5,7 @@ export interface CaptureTemplateProps {
   project: CaptureProjectInfo;
   fields: FieldDef[];
   purposes: PurposeDef[];
+  logoUrl?: string | null;
 }
 export type CaptureTemplate = (props: CaptureTemplateProps) => React.JSX.Element;
 

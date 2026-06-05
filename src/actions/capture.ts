@@ -20,8 +20,11 @@ interface CaptureInput {
 }
 
 export async function captureConsent(input: CaptureInput): Promise<{ recordId: string }> {
+  // Works both for a logged-in employee (internal /capture) and a public
+  // visitor (/c/<layout>/<slug>). capturedById is set only when an employee
+  // captures the consent.
   const session = await auth();
-  if (!session?.user?.id) throw new Error("Μη εξουσιοδοτημένος");
+  const capturedById = session?.user?.id ?? null;
 
   const email = input.subjectEmail?.trim();
   if (!email) throw new Error("Απαιτείται email πελάτη");
@@ -53,7 +56,7 @@ export async function captureConsent(input: CaptureInput): Promise<{ recordId: s
       userAgent: hdrs.get("user-agent") ?? null,
       confirmationChannel: "IN_PERSON",
       signatureUrl,
-      capturedById: session.user.id,
+      capturedById,
       locale: "el",
     },
   });
