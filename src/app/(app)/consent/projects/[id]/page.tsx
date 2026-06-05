@@ -1,8 +1,10 @@
 import { notFound } from "next/navigation";
+import { headers } from "next/headers";
 import Link from "next/link";
 import { ArrowLeft, Users } from "lucide-react";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getBaseUrlFromHeaders } from "@/lib/base-url";
 import { getConsentProjectById, listPersonalDataFields } from "@/actions/consent";
 import { Topbar } from "@/components/layout/topbar";
 import { AppFooter } from "@/components/layout/app-footer";
@@ -21,6 +23,8 @@ export default async function ConsentProjectEditPage({ params }: { params: Promi
     }),
   ]);
   if (!project) notFound();
+
+  const publicBaseUrl = getBaseUrlFromHeaders(await headers());
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -52,6 +56,7 @@ export default async function ConsentProjectEditPage({ params }: { params: Promi
             project={JSON.parse(JSON.stringify(project))}
             allFields={JSON.parse(JSON.stringify(allFields))}
             policies={JSON.parse(JSON.stringify(policies))}
+            publicBaseUrl={publicBaseUrl}
           />
 
           <AppFooter />

@@ -82,7 +82,7 @@ function SectionCard({ icon: Icon, title, hint, children }: {
   );
 }
 
-export function ProjectEditor({ project, allFields, policies }: { project: ProjectData; allFields: FieldOption[]; policies: PolicyDoc[] }) {
+export function ProjectEditor({ project, allFields, policies, publicBaseUrl }: { project: ProjectData; allFields: FieldOption[]; policies: PolicyDoc[]; publicBaseUrl?: string }) {
   const [name, setName] = useState(project.name);
   const [descEl, setDescEl] = useState(project.description?.el ?? "");
   const [descEn, setDescEn] = useState(project.description?.en ?? "");
@@ -102,7 +102,7 @@ export function ProjectEditor({ project, allFields, policies }: { project: Proje
   const [dpia, setDpia] = useState<DpiaResult | null>(null);
   const [dpiaError, setDpiaError] = useState("");
 
-  const publicBase = typeof window !== "undefined" ? window.location.origin : "";
+  const publicBase = (publicBaseUrl || (typeof window !== "undefined" ? window.location.origin : "")).replace(/\/+$/, "");
   const formUrl = `${publicBase}/c/${project.slug}`;
   const manageUrl = `${publicBase}/c/${project.slug}/manage`;
   const statusMeta = STATUS_OPTIONS.find((s) => s.value === status) ?? STATUS_OPTIONS[0];
