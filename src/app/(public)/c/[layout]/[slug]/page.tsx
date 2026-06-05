@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { loc } from "@/lib/localized";
 import { ConsentForm } from "./consent-form";
 
-export default async function PublicConsentPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function PublicConsentPage({ params }: { params: Promise<{ layout: string; slug: string }> }) {
   const { slug } = await params;
   const project = await prisma.consentProject.findUnique({
     where: { slug },
@@ -25,7 +25,7 @@ export default async function PublicConsentPage({ params }: { params: Promise<{ 
 
   return (
     <div className="overflow-hidden rounded-xl border bg-white shadow-sm" style={{ borderColor: "#EDEBE9" }}>
-      <div style={{ height: 4, background: "#0078D4" }} />
+      <div style={{ height: 4, background: "var(--accent, #0078D4)" }} />
       <div className="p-6 sm:p-7">
         <div className="mb-5 border-b pb-4" style={{ borderColor: "#EDEBE9" }}>
           <h1 className="text-[22px] font-bold tracking-tight" style={{ color: "#201F1E" }}>{project.name}</h1>

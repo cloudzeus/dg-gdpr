@@ -2,8 +2,8 @@ import { ShieldCheck, AlertTriangle } from "lucide-react";
 import { prisma } from "@/lib/prisma";
 import { formatDateTime } from "@/lib/utils";
 
-export default async function ConfirmResultPage({ params }: { params: Promise<{ slug: string; token: string }> }) {
-  const { token } = await params;
+export default async function ConfirmResultPage({ params }: { params: Promise<{ layout: string; slug: string; token: string }> }) {
+  const { layout, token } = await params;
   const record = await prisma.consentRecord.findUnique({ where: { verifyToken: token }, include: { project: true } });
   const ok = record?.status === "CONFIRMED";
 
@@ -42,9 +42,9 @@ export default async function ConfirmResultPage({ params }: { params: Promise<{ 
 
         {!ok && record?.project?.slug && (
           <a
-            href={`/c/${record.project.slug}`}
+            href={`/c/${layout}/${record.project.slug}`}
             className="mt-6 inline-flex items-center justify-center rounded-md px-5 py-2.5 text-sm font-semibold text-white"
-            style={{ background: "#0078D4" }}
+            style={{ background: "var(--accent, #0078D4)" }}
           >
             Επιστροφή στη φόρμα συναίνεσης
           </a>

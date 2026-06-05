@@ -87,7 +87,8 @@ export function ConsentForm({ slug, fields, purposes }: { slug: string; fields: 
       <button
         type="submit"
         disabled={busy}
-        className="w-full rounded-md bg-[#0078D4] py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#106EBE] active:bg-[#005A9E] disabled:opacity-50"
+        className="w-full rounded-md py-2.5 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-50"
+        style={{ background: "var(--accent, #0078D4)" }}
       >
         {busy ? "Υποβολή…" : "Υποβολή συναίνεσης"}
       </button>

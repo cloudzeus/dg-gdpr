@@ -103,8 +103,8 @@ export function ProjectEditor({ project, allFields, policies, publicBaseUrl }: {
   const [dpiaError, setDpiaError] = useState("");
 
   const publicBase = (publicBaseUrl || (typeof window !== "undefined" ? window.location.origin : "")).replace(/\/+$/, "");
-  const formUrl = `${publicBase}/c/${project.slug}`;
-  const manageUrl = `${publicBase}/c/${project.slug}/manage`;
+  const formUrl = `${publicBase}/c/${layout}/${project.slug}`;
+  const manageUrl = `${publicBase}/c/${layout}/${project.slug}/manage`;
   const statusMeta = STATUS_OPTIONS.find((s) => s.value === status) ?? STATUS_OPTIONS[0];
   const availableFields = allFields.filter((f) => !fields.some((sf) => sf.fieldId === f.id));
 

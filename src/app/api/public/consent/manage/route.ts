@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
       where: { projectId: project.id, subjectEmail: email, status: { in: ["CONFIRMED", "PENDING"] } },
     });
     if (record) {
-      const manageUrl = `${getBaseUrl(req)}/c/${slug}/manage/${record.verifyToken}`;
+      const manageUrl = `${getBaseUrl(req)}/c/${project.layoutTemplate}/${slug}/manage/${record.verifyToken}`;
       const mail = preferenceAccessEmail({ projectName: project.name, manageUrl });
       await sendMail({ to: email, subject: mail.subject, html: mail.html });
       if ((project.confirmationMethod === "SMS" || project.confirmationMethod === "BOTH") && record.subjectPhone) {

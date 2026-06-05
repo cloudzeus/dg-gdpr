@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { ManageRequestForm } from "./manage-request-form";
 
-export default async function ManageRequestPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function ManageRequestPage({ params }: { params: Promise<{ layout: string; slug: string }> }) {
   const { slug } = await params;
   const project = await prisma.consentProject.findUnique({ where: { slug } });
   if (!project) notFound();

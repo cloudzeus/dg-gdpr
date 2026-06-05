@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { ManageActions } from "./manage-actions";
 
-export default async function ManageActionsPage({ params }: { params: Promise<{ slug: string; token: string }> }) {
+export default async function ManageActionsPage({ params }: { params: Promise<{ layout: string; slug: string; token: string }> }) {
   const { slug, token } = await params;
   const record = await prisma.consentRecord.findUnique({ where: { verifyToken: token }, include: { project: true } });
   if (!record || record.project.slug !== slug) notFound();

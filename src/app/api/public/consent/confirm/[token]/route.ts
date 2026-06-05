@@ -11,7 +11,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
   const base = getBaseUrl(req);
   const record = await prisma.consentRecord.findUnique({ where: { verifyToken: token }, include: { project: true } });
   if (!record) {
-    return NextResponse.redirect(`${base}/c/unknown/confirm/invalid`);
+    return NextResponse.redirect(`${base}/c/DEFAULT/unknown/confirm/invalid`);
   }
 
   if (record.status === "PENDING") {
@@ -30,5 +30,5 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
     await sendMail({ to: record.subjectEmail, subject: mail.subject, html: mail.html });
   }
 
-  return NextResponse.redirect(`${base}/c/${record.project.slug}/confirm/${token}`);
+  return NextResponse.redirect(`${base}/c/${record.project.layoutTemplate}/${record.project.slug}/confirm/${token}`);
 }
