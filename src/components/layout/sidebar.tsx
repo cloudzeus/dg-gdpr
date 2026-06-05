@@ -70,7 +70,7 @@ const navGroups: NavGroup[] = [
   },
 ];
 
-function NavContent({ collapsed, onLinkClick }: { collapsed: boolean; onLinkClick?: () => void }) {
+function NavContent({ collapsed, onLinkClick, isSuperAdmin = false }: { collapsed: boolean; onLinkClick?: () => void; isSuperAdmin?: boolean }) {
   const pathname = usePathname();
   // Default: compliance & operations open, admin collapsed
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
@@ -104,7 +104,13 @@ function NavContent({ collapsed, onLinkClick }: { collapsed: boolean; onLinkClic
             <p className="truncate text-[13px] font-semibold leading-none" style={{ color: "rgb(var(--foreground))" }}>
               GDPR Compliance OS
             </p>
-            <p className="truncate text-[11px] mt-0.5" style={{ color: "rgb(var(--muted-foreground))" }}>DG Smart</p>
+            {isSuperAdmin ? (
+              <span className="inline-block mt-1 rounded px-1.5 py-0.5 text-[10px] font-semibold" style={{ background: "rgb(0,120,212)", color: "white" }}>
+                Υπερδιαχειριστής
+              </span>
+            ) : (
+              <p className="truncate text-[11px] mt-0.5" style={{ color: "rgb(var(--muted-foreground))" }}>DG Smart</p>
+            )}
           </div>
         )}
       </div>
@@ -208,12 +214,12 @@ function NavContent({ collapsed, onLinkClick }: { collapsed: boolean; onLinkClic
         </div>
       )}
 
-      <LicenseModal open={licenseOpen} onClose={() => setLicenseOpen(false)} />
+      <LicenseModal open={licenseOpen} onClose={() => setLicenseOpen(false)} canEdit={isSuperAdmin} />
     </div>
   );
 }
 
-export function Sidebar() {
+export function Sidebar({ isSuperAdmin = false }: { isSuperAdmin?: boolean }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -248,7 +254,7 @@ export function Sidebar() {
           style={{ color: "rgb(var(--muted-foreground))" }} onClick={() => setMobileOpen(false)}>
           <MdClose size={18} />
         </button>
-        <NavContent collapsed={false} onLinkClick={() => setMobileOpen(false)} />
+        <NavContent collapsed={false} onLinkClick={() => setMobileOpen(false)} isSuperAdmin={isSuperAdmin} />
       </aside>
 
       {/* Desktop sidebar */}
@@ -256,7 +262,7 @@ export function Sidebar() {
         className={cn("relative hidden md:flex flex-col border-r transition-all duration-200 shrink-0", collapsed ? "w-14" : "w-[220px]")}
         style={{ background: "rgb(var(--sidebar))", borderColor: "rgb(var(--border))" }}
       >
-        <NavContent collapsed={collapsed} />
+        <NavContent collapsed={collapsed} isSuperAdmin={isSuperAdmin} />
         <button
           onClick={() => setCollapsed(!collapsed)}
           className="absolute -right-3 top-16 z-10 flex h-6 w-6 items-center justify-center rounded-full border shadow-sm transition-colors"
