@@ -8,12 +8,13 @@ import {
   MdPersonOff, MdVerifiedUser, MdBusiness, MdWork, MdGroup,
   MdLibraryBooks, MdHandshake, MdDeviceHub, MdMenu, MdClose,
   MdChevronLeft, MdChevronRight, MdExpandMore, MdExpandLess,
-  MdVpnKey, MdAssignment, MdMenuBook,
+  MdVpnKey, MdAssignment, MdMenuBook, MdGavel,
 } from "react-icons/md";
+import { LicenseModal } from "@/components/modules/license-modal";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
 
-type NavItem = { label: string; href: string; icon: React.ComponentType<{ className?: string; size?: number; style?: any }> };
+type NavItem = { label: string; href?: string; action?: "license"; icon: React.ComponentType<{ className?: string; size?: number; style?: any }> };
 type NavGroup = { id: string; label: string; items: NavItem[] };
 
 const navGroups: NavGroup[] = [
@@ -38,6 +39,7 @@ const navGroups: NavGroup[] = [
       { label: "Εκπαίδευση", href: "/training", icon: MdSchool },
       { label: "Οδηγός Χρήσης", href: "/wiki", icon: MdMenuBook },
       { label: "Αρχείο Ελέγχου", href: "/audit", icon: MdArticle },
+      { label: "Άδεια Χρήσης", action: "license", icon: MdGavel },
     ],
   },
   {
@@ -76,11 +78,12 @@ function NavContent({ collapsed, onLinkClick }: { collapsed: boolean; onLinkClic
     operations: true,
     admin: false,
   });
+  const [licenseOpen, setLicenseOpen] = useState(false);
 
   // Auto-expand group that contains current path
   useEffect(() => {
     for (const g of navGroups) {
-      if (g.items.some((item) => pathname === item.href || pathname.startsWith(item.href + "/"))) {
+      if (g.items.some((item) => item.href && (pathname === item.href || pathname.startsWith(item.href + "/")))) {
         setExpanded((prev) => ({ ...prev, [g.id]: true }));
         break;
       }
@@ -110,7 +113,7 @@ function NavContent({ collapsed, onLinkClick }: { collapsed: boolean; onLinkClic
       <nav className="flex-1 overflow-y-auto py-2">
         {navGroups.map((group, gi) => {
           const isOpen = collapsed || expanded[group.id];
-          const hasActive = group.items.some((item) => pathname === item.href || pathname.startsWith(item.href + "/"));
+          const hasActive = group.items.some((item) => item.href && (pathname === item.href || pathname.startsWith(item.href + "/")));
           return (
             <div key={group.id} className={cn(gi > 0 && "mt-1")}>
               {/* Group header — collapsible */}
@@ -141,14 +144,35 @@ function NavContent({ collapsed, onLinkClick }: { collapsed: boolean; onLinkClic
               {isOpen && (
                 <ul className="space-y-px px-2">
                   {group.items.map((item) => {
-                    const active = pathname === item.href || pathname.startsWith(item.href + "/");
+                    const active = item.href
+                      ? pathname === item.href || pathname.startsWith(item.href + "/")
+                      : false;
+
+                    if (item.action === "license") {
+                      return (
+                        <li key={item.label} className="relative">
+                          <button
+                            onClick={() => { setLicenseOpen(true); onLinkClick?.(); }}
+                            className="flex items-center gap-2.5 rounded px-2.5 py-1.5 text-[13px] transition-colors duration-100 w-full font-normal text-left"
+                            style={{ color: "rgb(var(--sidebar-foreground))" }}
+                            onMouseEnter={(e) => { e.currentTarget.style.background = "rgb(var(--sidebar-muted))"; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.background = ""; }}
+                            title={collapsed ? item.label : undefined}
+                          >
+                            <item.icon size={17} className="shrink-0" style={{ color: "rgb(var(--muted-foreground))" }} />
+                            {!collapsed && <span className="truncate">{item.label}</span>}
+                          </button>
+                        </li>
+                      );
+                    }
+
                     return (
                       <li key={item.href} className="relative">
                         {active && (
                           <span className="absolute left-0 top-0 bottom-0 rounded-r-sm" style={{ width: 3, background: "rgb(0,120,212)" }} />
                         )}
                         <Link
-                          href={item.href}
+                          href={item.href!}
                           onClick={onLinkClick}
                           className={cn("flex items-center gap-2.5 rounded px-2.5 py-1.5 text-[13px] transition-colors duration-100 w-full", active ? "font-medium" : "font-normal")}
                           style={{
@@ -183,6 +207,8 @@ function NavContent({ collapsed, onLinkClick }: { collapsed: boolean; onLinkClic
           <p className="text-[10px]">v1.0 · GDPR Article 5</p>
         </div>
       )}
+
+      <LicenseModal open={licenseOpen} onClose={() => setLicenseOpen(false)} />
     </div>
   );
 }
