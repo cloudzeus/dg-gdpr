@@ -6,6 +6,7 @@ import { getConsentProjectById, listConsentRecords } from "@/actions/consent";
 import { Topbar } from "@/components/layout/topbar";
 import { AppFooter } from "@/components/layout/app-footer";
 import { Badge } from "@/components/ui/badge";
+import { ResendConsentLinkButton } from "@/components/modules/resend-consent-link-button";
 import { formatDateTime } from "@/lib/utils";
 
 const STATUS_META: Record<string, { label: string; variant: "secondary" | "success" | "outline" | "destructive" }> = {
@@ -56,6 +57,7 @@ export default async function ConsentRecordsPage({ params }: { params: Promise<{
                   <th className="px-4 py-2.5 font-medium">Επιβεβαίωση</th>
                   <th className="px-4 py-2.5 font-medium">IP</th>
                   <th className="px-4 py-2.5 font-medium">User-Agent</th>
+                  <th className="px-4 py-2.5 font-medium">Ενέργειες</th>
                 </tr>
               </thead>
               <tbody>
@@ -68,11 +70,14 @@ export default async function ConsentRecordsPage({ params }: { params: Promise<{
                       <td className="px-4 py-3 text-neutral-600">{formatDateTime(r.confirmedAt)}</td>
                       <td className="px-4 py-3 font-mono text-xs text-neutral-500">{r.ipAddress ?? "—"}</td>
                       <td className="px-4 py-3 max-w-xs truncate text-xs text-neutral-400">{r.userAgent ?? "—"}</td>
+                      <td className="px-4 py-3">
+                        {r.status === "PENDING" ? <ResendConsentLinkButton recordId={r.id} /> : <span className="text-neutral-300">—</span>}
+                      </td>
                     </tr>
                   );
                 })}
                 {records.length === 0 && (
-                  <tr><td className="px-4 py-10 text-center text-sm text-neutral-400" colSpan={5}>Καμία συναίνεση ακόμη.</td></tr>
+                  <tr><td className="px-4 py-10 text-center text-sm text-neutral-400" colSpan={6}>Καμία συναίνεση ακόμη.</td></tr>
                 )}
               </tbody>
             </table>

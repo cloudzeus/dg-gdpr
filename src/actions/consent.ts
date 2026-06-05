@@ -4,8 +4,13 @@ import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
 import { logAction } from "@/lib/action-logger";
 import { revalidatePath } from "next/cache";
+import { headers } from "next/headers";
 import { slugify } from "@/lib/slug";
 import { generateConsentToken } from "@/lib/consent-token";
+import { getBaseUrlFromHeaders } from "@/lib/base-url";
+import { sendMail } from "@/lib/mail";
+import { sendSms } from "@/lib/sms";
+import { consentVerifyEmail } from "@/lib/consent-email";
 import type { LocalizedText } from "@/lib/localized";
 import type {
   DataFieldCategory,
@@ -205,6 +210,38 @@ export async function adminWithdrawConsent(id: string) {
   await logAction({ action: "WITHDRAW", entity: "ConsentRecord", entityId: id });
   revalidatePath(`/consent/projects/${updated.projectId}/records`);
   return updated;
+}
+
+/**
+ * Resend the verification (double opt-in) link for a still-pending consent
+ * record. Reuses the existing token and emails (and SMS, when configured) the
+ * correct API-route confirmation URL.
+ */
+export async function resendConsentLink(id: string) {
+  await requireUser();
+  const record = await prisma.consentRecord.findUnique({
+    where: { id },
+    include: { project: true },
+  });
+  if (!record) throw new Error("Δεν βρέθηκε η εγγραφή");
+  if (record.status !== "PENDING") {
+    throw new Error("Η επαναποστολή επιτρέπεται μόνο για εκκρεμείς συναινέσεις");
+  }
+
+  const base = getBaseUrlFromHeaders(await headers());
+  const confirmUrl = `${base}/api/public/consent/confirm/${record.verifyToken}`;
+  const mail = consentVerifyEmail({ projectName: record.project.name, confirmUrl });
+  await sendMail({ to: record.subjectEmail, subject: mail.subject, html: mail.html });
+  if (
+    (record.project.confirmationMethod === "SMS" || record.project.confirmationMethod === "BOTH") &&
+    record.subjectPhone
+  ) {
+    await sendSms(record.subjectPhone, `Επιβεβαιώστε τη συναίνεσή σας: ${confirmUrl}`);
+  }
+
+  await logAction({ action: "RESEND_LINK", entity: "ConsentRecord", entityId: id });
+  revalidatePath(`/consent/projects/${record.projectId}/records`);
+  return { success: true };
 }
 
 // Re-export for the public submit route (token generated server-side)
