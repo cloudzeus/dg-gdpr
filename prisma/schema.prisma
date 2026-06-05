@@ -832,6 +832,7 @@ enum ConfirmationMethod {
   EMAIL
   SMS
   BOTH
+  IN_PERSON
 }
 
 enum ConsentStatus {
@@ -871,6 +872,7 @@ model ConsentProject {
   description        Json
   status             ConsentProjectStatus @default(DRAFT)
   confirmationMethod ConfirmationMethod   @default(EMAIL)
+  layoutTemplate     String              @default("DEFAULT")
   createdAt          DateTime             @default(now())
   updatedAt          DateTime             @updatedAt
 
@@ -921,6 +923,8 @@ model ConsentRecord {
   ipAddress           String?
   userAgent           String?             @db.Text
   confirmationChannel ConfirmationMethod?
+  signatureUrl        String?             @db.Text
+  capturedById        String?
   locale              String              @default("el")
   withdrawnAt         DateTime?
   createdAt           DateTime            @default(now())
