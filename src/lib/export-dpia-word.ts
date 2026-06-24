@@ -27,12 +27,121 @@ export interface DpiaWordData {
   dpoConsulted: boolean;
   dpoName?: string | null;
   supervisoryBody?: string | null;
+  riskLikelihood?: number | null;
+  riskImpact?: number | null;
+  riskReasoning?: string | null;
 }
 
 const BLUE = "0078D4";
 const DARK = "1F3F5E";
 const GREEN = "107C10";
 const ORANGE = "CA5010";
+
+// Risk severity bands (Score = Likelihood × Impact, 1-25)
+const SEV_VERY_LOW = "256029";
+const SEV_LOW = "5B9D52";
+const SEV_MEDIUM = "E6B800";
+const SEV_HIGH = "F08784";
+const SEV_VERY_HIGH = "D62828";
+
+function severityColor(score: number): string {
+  if (score <= 2) return SEV_VERY_LOW;
+  if (score <= 4) return SEV_LOW;
+  if (score <= 12) return SEV_MEDIUM;
+  if (score <= 16) return SEV_HIGH;
+  return SEV_VERY_HIGH;
+}
+
+function severityLabel(score: number): string {
+  if (score <= 2) return "Πολύ Χαμηλός";
+  if (score <= 4) return "Χαμηλός";
+  if (score <= 12) return "Μέτριος";
+  if (score <= 16) return "Υψηλός";
+  return "Πολύ Υψηλός";
+}
+
+const LIKELIHOOD_LABELS = ["Πολύ Απίθανο", "Απίθανο", "Μέτριο", "Πιθανό", "Πολύ Πιθανό"];
+const IMPACT_LABELS = ["Αμελητέα", "Μικρή", "Μέτρια", "Σοβαρή", "Πολύ Σοβαρή"];
+
+function noBorders() {
+  return {
+    top: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+    bottom: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+    left: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+    right: { style: BorderStyle.NONE, size: 0, color: "FFFFFF" },
+  };
+}
+
+/** 5×5 Likelihood × Impact heatmap. Highlights the assessed cell. */
+function riskMatrixTable(likelihood?: number | null, impact?: number | null): Table {
+  const hasSel =
+    typeof likelihood === "number" && typeof impact === "number" &&
+    likelihood >= 1 && likelihood <= 5 && impact >= 1 && impact <= 5;
+
+  const headerCell = (text: string) =>
+    new TableCell({
+      width: { size: 16, type: WidthType.PERCENTAGE },
+      shading: { fill: "FFFFFF" },
+      verticalAlign: "center" as any,
+      borders: noBorders(),
+      children: [
+        new Paragraph({
+          alignment: AlignmentType.CENTER,
+          children: [new TextRun({ text, bold: true, size: 16, color: DARK })],
+        }),
+      ],
+    });
+
+  const rows: TableRow[] = [];
+
+  // Top header: corner + Impact 1..5
+  rows.push(
+    new TableRow({
+      children: [
+        headerCell(""),
+        ...[1, 2, 3, 4, 5].map((im) => headerCell(`Επ. ${im}\n${IMPACT_LABELS[im - 1]}`)),
+      ],
+    })
+  );
+
+  // Likelihood rows 5..1
+  for (const l of [5, 4, 3, 2, 1]) {
+    const cells: TableCell[] = [
+      headerCell(`Πιθ. ${l}\n${LIKELIHOOD_LABELS[l - 1]}`),
+    ];
+    for (const im of [1, 2, 3, 4, 5]) {
+      const score = l * im;
+      const selected = hasSel && l === likelihood && im === impact;
+      cells.push(
+        new TableCell({
+          width: { size: 16, type: WidthType.PERCENTAGE },
+          shading: { fill: severityColor(score) },
+          verticalAlign: "center" as any,
+          borders: selected
+            ? {
+                top: { style: BorderStyle.SINGLE, size: 24, color: "000000" },
+                bottom: { style: BorderStyle.SINGLE, size: 24, color: "000000" },
+                left: { style: BorderStyle.SINGLE, size: 24, color: "000000" },
+                right: { style: BorderStyle.SINGLE, size: 24, color: "000000" },
+              }
+            : undefined,
+          children: [
+            new Paragraph({
+              alignment: AlignmentType.CENTER,
+              children: [
+                new TextRun({ text: String(score), bold: true, size: 22, color: "FFFFFF" }),
+                ...(selected ? [new TextRun({ text: " ◀", bold: true, size: 16, color: "FFFFFF" })] : []),
+              ],
+            }),
+          ],
+        })
+      );
+    }
+    rows.push(new TableRow({ children: cells }));
+  }
+
+  return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows });
+}
 
 const STATUS_LABELS: Record<string, string> = {
   DRAFT: "Προσχέδιο",
@@ -233,6 +342,35 @@ export async function buildDpiaWord(data: DpiaWordData): Promise<Buffer> {
           body("Ο παρακάτω πίνακας παρουσιάζει τους αναγνωρισμένους κινδύνους και τα αντίστοιχα μέτρα αντιμετώπισης:"),
           separator(),
           twoColTable(data.risksIdentified, data.riskMitigation),
+
+          separator(),
+
+          // Risk matrix graphic + assessment
+          h2("Μήτρα Εκτίμησης Κινδύνου (Πιθανότητα × Επίπτωση)"),
+          ...(typeof data.riskLikelihood === "number" && typeof data.riskImpact === "number"
+            ? [
+                field(
+                  "Συνολική εκτίμηση",
+                  `Πιθανότητα ${data.riskLikelihood} (${LIKELIHOOD_LABELS[data.riskLikelihood - 1] ?? "—"}) × ` +
+                    `Επίπτωση ${data.riskImpact} (${IMPACT_LABELS[data.riskImpact - 1] ?? "—"}) = ` +
+                    `Βαθμός ${data.riskLikelihood * data.riskImpact} — ${severityLabel(data.riskLikelihood * data.riskImpact)}`,
+                ),
+                separator(),
+              ]
+            : [body("Δεν έχει καταχωρηθεί αριθμητική εκτίμηση πιθανότητας/επίπτωσης.")]),
+          riskMatrixTable(data.riskLikelihood, data.riskImpact),
+          ...(data.riskReasoning
+            ? [
+                separator(),
+                new Paragraph({
+                  spacing: { after: 120 },
+                  children: [
+                    new TextRun({ text: "Αιτιολόγηση εκτίμησης: ", bold: true, size: 20, color: DARK }),
+                    new TextRun({ text: data.riskReasoning, size: 20 }),
+                  ],
+                }),
+              ]
+            : []),
 
           separator(),
 

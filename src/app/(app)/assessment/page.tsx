@@ -14,6 +14,7 @@ import Link from "next/link";
 import { ChevronRight, AlertTriangle, XCircle, History } from "lucide-react";
 import { ActionPlanAiButton } from "@/components/modules/action-plan-ai-button";
 import { ComplianceHistoryCard } from "@/components/modules/compliance-history-card";
+import { RiskMatrix } from "@/components/modules/risk-matrix";
 import { prisma } from "@/lib/prisma";
 
 export default async function AssessmentPage() {
@@ -176,6 +177,19 @@ export default async function AssessmentPage() {
               </CardHeader>
               <CardContent>
                 <ComplianceHistoryCard snapshots={snapshots as any} />
+              </CardContent>
+            </Card>
+
+            {/* Risk matrix reference */}
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4" />
+                  Μήτρα Εκτίμησης Κινδύνου
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <RiskMatrix />
               </CardContent>
             </Card>
           </div>

@@ -155,18 +155,22 @@ export default async function DashboardPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               {[
-                { label: "Ανεκπλήρωτες Αξιολογήσεις DPIA", count: 2, icon: Clock, color: "text-orange-500" },
-                { label: "Ληγμένες Συμβάσεις DPA", count: 1, icon: AlertTriangle, color: "text-red-500" },
-                { label: "Εκπαιδεύσεις χωρίς Επιτυχία", count: 3, icon: GraduationCap, color: "text-yellow-500" },
-                { label: "Ολοκληρωμένοι Έλεγχοι Privacy", count: data.checklistsCount, icon: CheckCircle2, color: "text-green-500" },
+                { label: "Ανεκπλήρωτες Αξιολογήσεις DPIA", count: 2, icon: Clock, color: "text-orange-500", href: "/dpia" },
+                { label: "Ληγμένες Συμβάσεις DPA", count: 1, icon: AlertTriangle, color: "text-red-500", href: "/dpia" },
+                { label: "Εκπαιδεύσεις χωρίς Επιτυχία", count: 3, icon: GraduationCap, color: "text-yellow-500", href: "/training" },
+                { label: "Ολοκληρωμένοι Έλεγχοι Privacy", count: data.checklistsCount, icon: CheckCircle2, color: "text-green-500", href: "/dev" },
               ].map((item) => (
-                <div key={item.label} className="flex items-center justify-between rounded-md bg-secondary/50 px-3 py-2.5">
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  className="flex items-center justify-between rounded-md bg-secondary/50 px-3 py-2.5 transition-colors hover:bg-secondary"
+                >
                   <div className="flex items-center gap-2.5">
                     <item.icon className={`h-4 w-4 ${item.color}`} />
                     <span className="text-sm">{item.label}</span>
                   </div>
                   <span className="text-sm font-bold">{item.count}</span>
-                </div>
+                </Link>
               ))}
             </CardContent>
           </Card>

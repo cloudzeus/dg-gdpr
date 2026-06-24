@@ -559,6 +559,9 @@ model DpiaReport {
   title             String
   processingPurpose String      @db.Text
   necessityAssessed Boolean     @default(false)
+  riskLikelihood    Int?
+  riskImpact        Int?
+  riskReasoning     String?     @db.Text
   risksIdentified   Json?
   riskMitigation    Json?
   dpoConsulted      Boolean     @default(false)

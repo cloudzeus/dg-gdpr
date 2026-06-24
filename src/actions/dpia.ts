@@ -172,6 +172,13 @@ export async function updateDpia(formData: FormData): Promise<void> {
   const risksRaw = (formData.get("risksIdentified") as string) || "[]";
   const mitigationsRaw = (formData.get("riskMitigation") as string) || "[]";
 
+  const parseLevel = (v: FormDataEntryValue | null) => {
+    const n = parseInt((v as string) ?? "", 10);
+    return Number.isInteger(n) && n >= 1 && n <= 5 ? n : null;
+  };
+  const riskLikelihood = parseLevel(formData.get("riskLikelihood"));
+  const riskImpact = parseLevel(formData.get("riskImpact"));
+
   await prisma.dpiaReport.update({
     where: { id },
     data: {
@@ -181,8 +188,34 @@ export async function updateDpia(formData: FormData): Promise<void> {
       supervisoryBody,
       necessityAssessed,
       dpoConsulted,
+      riskLikelihood,
+      riskImpact,
       risksIdentified: JSON.parse(risksRaw),
       riskMitigation: JSON.parse(mitigationsRaw),
+    },
+  });
+
+  await logAction({ action: "UPDATE", entity: "DpiaReport", entityId: id });
+  revalidatePath(`/dpia/${id}`);
+  revalidatePath("/dpia");
+}
+
+export async function assessDpiaRisk(
+  id: string,
+  likelihood: number,
+  impact: number,
+  reasoning?: string,
+): Promise<void> {
+  const session = await auth();
+  if (!session?.user?.id) throw new Error("Μη εξουσιοδοτημένος");
+
+  const clamp = (n: number) => Math.min(5, Math.max(1, Math.round(n)));
+  await prisma.dpiaReport.update({
+    where: { id },
+    data: {
+      riskLikelihood: clamp(likelihood),
+      riskImpact: clamp(impact),
+      ...(reasoning !== undefined ? { riskReasoning: reasoning } : {}),
     },
   });
 

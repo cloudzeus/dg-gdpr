@@ -12,6 +12,8 @@ import { formatDate } from "@/lib/utils";
 import Link from "next/link";
 import { DpiaDocumentActions } from "@/components/modules/dpia-document-actions";
 import { DpiaEditForm } from "@/components/modules/dpia-edit-form";
+import { RiskMatrix } from "@/components/modules/risk-matrix";
+import { DpiaRiskAiButton } from "@/components/modules/dpia-risk-ai-button";
 
 const STATUS_LABELS: Record<string, string> = {
   DRAFT: "Προσχέδιο",
@@ -169,6 +171,29 @@ export default async function DpiaDetailPage({ params }: { params: Promise<{ id:
             </CardContent>
           </Card>
 
+          {/* Risk matrix */}
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                <Layers className="h-4 w-4 text-[rgb(0,120,212)]" />
+                Μήτρα Εκτίμησης Κινδύνου
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <DpiaRiskAiButton
+                id={report.id}
+                title={report.title}
+                processingPurpose={report.processingPurpose}
+                risks={risks}
+                mitigations={mitigations}
+              />
+              <RiskMatrix
+                likelihood={report.riskLikelihood ?? undefined}
+                impact={report.riskImpact ?? undefined}
+              />
+            </CardContent>
+          </Card>
+
           {/* Necessity & DPO */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Card>
@@ -217,6 +242,7 @@ export default async function DpiaDetailPage({ params }: { params: Promise<{ id:
             <CardContent>
               <DpiaEditForm
                 id={id}
+                title={report.title}
                 status={report.status}
                 processingPurpose={report.processingPurpose}
                 necessityAssessed={report.necessityAssessed}
@@ -225,6 +251,8 @@ export default async function DpiaDetailPage({ params }: { params: Promise<{ id:
                 supervisoryBody={report.supervisoryBody}
                 risks={risks}
                 mitigations={mitigations}
+                riskLikelihood={report.riskLikelihood}
+                riskImpact={report.riskImpact}
               />
             </CardContent>
           </Card>

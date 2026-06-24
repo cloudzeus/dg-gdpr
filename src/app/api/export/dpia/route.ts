@@ -33,6 +33,9 @@ export async function GET(req: Request) {
     dpoConsulted: report.dpoConsulted,
     dpoName: report.dpoName,
     supervisoryBody: report.supervisoryBody,
+    riskLikelihood: report.riskLikelihood,
+    riskImpact: report.riskImpact,
+    riskReasoning: report.riskReasoning,
   });
 
   const safeName = report.title.replace(/[^a-zA-Z0-9]/g, "-").toLowerCase().slice(0, 40);
