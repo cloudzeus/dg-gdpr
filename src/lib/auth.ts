@@ -1,6 +1,7 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import MicrosoftEntraId from "next-auth/providers/microsoft-entra-id";
+import { isEmailDomainApproved } from "@/lib/approved-domains";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
@@ -73,16 +74,71 @@ if (
   );
 }
 
+const ENTRA_PROVIDER = "microsoft-entra-id";
+
+/**
+ * Ο τοπικός χρήστης που αντιστοιχεί σε ένα email.
+ *
+ * Απαραίτητο επειδή τρέχουμε `strategy: "jwt"` ΧΩΡΙΣ adapter: το `user` που
+ * επιστρέφει ο Entra είναι το προφίλ της Microsoft, με `id` το Entra GUID —
+ * δεν αντιστοιχεί σε καμία εγγραφή `User`. Χωρίς αυτή την αναζήτηση ο χρήστης
+ * παίρνει άκυρο `id` και πάντα ρόλο "USER".
+ */
+async function findLocalUser(email: string | null | undefined) {
+  if (!email) return null;
+  return prisma.user.findUnique({
+    where: { email: email.trim().toLowerCase() },
+    select: {
+      id: true,
+      role: true,
+      isActive: true,
+      department: { select: { name: true } },
+    },
+  });
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
   session: { strategy: "jwt" },
   providers,
   callbacks: {
+    /**
+     * Ποιος επιτρέπεται να μπει με Microsoft:
+     *  1. Υπάρχων χρήστης  → μόνο αν είναι `isActive`
+     *  2. Άγνωστος χρήστης → μόνο αν το domain του είναι στα `Organization.domains`
+     *                        (η ρητή λίστα των domains του ομίλου)
+     * Ο Credentials provider έχει ήδη επικυρώσει τα πάντα στο `authorize()`.
+     */
+    async signIn({ user, account }) {
+      if (account?.provider !== ENTRA_PROVIDER) return true;
+
+      const email = user.email?.trim().toLowerCase();
+      if (!email) return false;
+
+      const existing = await findLocalUser(email);
+      if (existing) return existing.isActive;
+
+      const org = await prisma.organization.findFirst({ select: { domains: true } });
+      if (!isEmailDomainApproved(email, org?.domains)) return false;
+
+      await prisma.user.create({
+        data: {
+          email,
+          name: user.name ?? email,
+          image: user.image ?? null,
+          role: "USER",
+        },
+      });
+      return true;
+    },
+
     async jwt({ token, user }) {
       if (user) {
-        token.id = (user as any).id;
-        token.role = (user as any).role ?? "USER";
-        token.department = (user as any).department;
+        // Πάντα από τη βάση: ο Entra δεν ξέρει τίποτα για ρόλους της εφαρμογής.
+        const local = await findLocalUser(user.email);
+        token.id = local?.id ?? (user as any).id;
+        token.role = local?.role ?? (user as any).role ?? "USER";
+        token.department = local?.department?.name ?? null;
       }
       return token;
     },
