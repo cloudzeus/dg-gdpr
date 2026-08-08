@@ -11,26 +11,63 @@ import { LicenseEditor } from "@/components/modules/license-editor";
 import { getOrganization } from "@/actions/organization";
 import { findOrgGaps } from "@/lib/org-completeness";
 
+const USER_SELECT = {
+  id: true,
+  name: true,
+  email: true,
+  image: true,
+  role: true,
+  isSuperAdmin: true,
+  phone: true,
+  address: true,
+  department: { select: { id: true, name: true } },
+  position: { select: { id: true, title: true } },
+} as const;
+
 export default async function SettingsPage() {
   const session = await auth();
+  const sessionId = session?.user?.id;
+  const sessionEmail = session?.user?.email;
 
-  const user = await prisma.user.findUnique({
-    where: { id: session!.user!.id! },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      image: true,
-      role: true,
-      isSuperAdmin: true,
-      phone: true,
-      address: true,
-      department: { select: { id: true, name: true } },
-      position: { select: { id: true, title: true } },
-    },
-  });
+  // Το `id` του session μπορεί να είναι παλιό (π.χ. token εκδοθέν πριν διορθωθεί
+  // η σύνδεση με Entra, όπου κρατούσε το Entra GUID). Το email του υπογεγραμμένου
+  // JWT είναι εξίσου αξιόπιστο, οπότε λειτουργεί ως δεύτερο κλειδί.
+  const user =
+    (sessionId
+      ? await prisma.user.findUnique({ where: { id: sessionId }, select: USER_SELECT })
+      : null) ??
+    (sessionEmail
+      ? await prisma.user.findUnique({ where: { email: sessionEmail }, select: USER_SELECT })
+      : null);
 
-  if (!user) return null;
+  // Ποτέ σιωπηλό `return null` — μια λευκή σελίδα δεν λέει τίποτα σε κανέναν.
+  if (!user) {
+    return (
+      <div className="flex flex-col h-full overflow-hidden">
+        <Topbar userName={session?.user?.name} userRole={undefined} pageTitle="Ρυθμίσεις" />
+        <main className="flex-1 overflow-y-auto p-6">
+          <Card className="max-w-2xl">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Shield className="h-4 w-4 text-destructive" /> Ο λογαριασμός δεν βρέθηκε
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <p className="text-muted-foreground">
+                Η συνεδρία σας δεν αντιστοιχεί σε χρήστη της εφαρμογής
+                {sessionEmail ? ` (${sessionEmail})` : ""}. Αποσυνδεθείτε και συνδεθείτε ξανά.
+              </p>
+              <p className="text-muted-foreground">
+                Αν επιμείνει, ζητήστε από διαχειριστή να ελέγξει ότι υπάρχει ενεργός χρήστης με
+                αυτό το email.
+              </p>
+            </CardContent>
+          </Card>
+        </main>
+      </div>
+    );
+  }
+
   const license = user.isSuperAdmin ? await getLicense() : null;
 
   // Τα στοιχεία εταιρείας τα διαχειρίζονται μόνο διαχειριστές (/admin/* είναι ADMIN-only).
