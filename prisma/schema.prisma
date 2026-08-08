@@ -992,7 +992,6 @@ enum OcrStatus {
   PENDING
   RUNNING
   DONE
-  ESCALATED
   FAILED
 }
 
@@ -1085,8 +1084,7 @@ model ComplianceIntake {
   gaps      IntakeGap[]
 
   @@index([status])
-  @@index([userId])
-  @@index([projectId])
+  @@index([userId, status])
 }
 
 model IntakeDocument {
@@ -1103,6 +1101,7 @@ model IntakeDocument {
   ocrText    String?      @db.LongText
   ocrModel   String?
   ocrQuality Float?
+  /// Χρησιμοποιήθηκε το ακριβό μοντέλο. Ανεξάρτητο του ocrStatus: μια κλιμάκωση που κατέληξε σε FAILED κόστισε το ίδιο.
   escalated  Boolean      @default(false)
   ocrStatus  OcrStatus    @default(PENDING)
   ocrError   String?      @db.Text
@@ -1112,7 +1111,6 @@ model IntakeDocument {
 
   intake ComplianceIntake @relation(fields: [intakeId], references: [id], onDelete: Cascade)
 
-  @@index([intakeId])
   @@index([fileHash])
 }
 
@@ -1141,9 +1139,6 @@ model IntakeParty {
 
   intake  ComplianceIntake @relation(fields: [intakeId], references: [id], onDelete: Cascade)
   company Company?         @relation(fields: [companyId], references: [id])
-
-  @@index([intakeId])
-  @@index([companyId])
 }
 
 model IntakeGap {
@@ -1160,6 +1155,7 @@ model IntakeGap {
   policyType        PolicyType?
 
   status            GapStatus   @default(OPEN)
+  /// Δείχνει στη δημιουργημένη οντότητα. Εξαίρεση: το CREATE_ROPA_ENTRY δεν δημιουργεί εγγραφή — οι καταχωρίσεις RoPA ζουν μέσα στο DepartmentFlow.entries (Json), οπότε το τμήμα και η καταχώριση αποθηκεύονται στο remedyPayload και το createdEntityId μένει null.
   createdEntityType String?
   createdEntityId   String?
   dismissReason     String?     @db.Text
@@ -1168,6 +1164,4 @@ model IntakeGap {
   updatedAt DateTime @updatedAt
 
   intake ComplianceIntake @relation(fields: [intakeId], references: [id], onDelete: Cascade)
-
-  @@index([intakeId])
 }
