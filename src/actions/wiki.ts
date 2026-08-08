@@ -1,16 +1,11 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
 import { logAction } from "@/lib/action-logger";
 import { revalidatePath } from "next/cache";
 import { slugify } from "@/lib/slug";
+import { requireUserId as requireUser } from "@/lib/current-user";
 
-async function requireUser() {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
-  return session.user.id;
-}
 
 // Published articles for the public viewer, grouped/ordered.
 export async function listPublishedArticles() {

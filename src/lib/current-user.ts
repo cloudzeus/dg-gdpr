@@ -37,3 +37,27 @@ export async function getAdminUser() {
   const user = await getCurrentUser();
   return user?.isActive && user.role === "ADMIN" ? user : null;
 }
+
+/** Ο συνδεδεμένος ενεργός χρήστης· πετά αν δεν υπάρχει. */
+export async function requireUser() {
+  const user = await getCurrentUser();
+  if (!user?.isActive) throw new Error("Μη εξουσιοδοτημένος");
+  return user;
+}
+
+/**
+ * Το `User.id` του συνδεδεμένου χρήστη — πάντα το πραγματικό id της βάσης.
+ *
+ * Το `session.user.id` δεν είναι αρκετό: tokens που εκδόθηκαν πριν διορθωθεί
+ * η σύνδεση με Entra κρατούν Entra GUID, που ως `userId` σπάει foreign key.
+ */
+export async function requireUserId() {
+  return (await requireUser()).id;
+}
+
+/** Το `User.id` του συνδεδεμένου διαχειριστή· πετά αν δεν είναι ADMIN. */
+export async function requireAdmin() {
+  const user = await requireUser();
+  if (user.role !== "ADMIN") throw new Error("Απαιτείται δικαίωμα Διαχειριστή");
+  return user.id;
+}

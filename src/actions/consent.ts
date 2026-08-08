@@ -1,7 +1,6 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
 import { logAction } from "@/lib/action-logger";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
@@ -12,6 +11,7 @@ import { sendMail } from "@/lib/mail";
 import { sendSms } from "@/lib/sms";
 import { consentVerifyEmail } from "@/lib/consent-email";
 import type { LocalizedText } from "@/lib/localized";
+import { requireUserId as requireUser } from "@/lib/current-user";
 import type {
   DataFieldCategory,
   FieldInputType,
@@ -20,11 +20,6 @@ import type {
   LegalBasis,
 } from "@prisma/client";
 
-async function requireUser() {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
-  return session.user.id;
-}
 
 // ── Personal Data Fields ───────────────────────────────────────────────
 

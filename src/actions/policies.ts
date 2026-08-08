@@ -1,17 +1,11 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
 import { logAction } from "@/lib/action-logger";
 import { revalidatePath } from "next/cache";
 import type { PolicyType, PolicyStatus } from "@prisma/client";
+import { requireAdmin } from "@/lib/current-user";
 
-async function requireAdmin() {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Μη εξουσιοδοτημένος");
-  if ((session.user as any).role !== "ADMIN") throw new Error("Απαιτείται δικαίωμα Διαχειριστή");
-  return session.user.id;
-}
 
 export async function listPolicies() {
   return prisma.policyDocument.findMany({

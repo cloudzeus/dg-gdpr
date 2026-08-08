@@ -1,17 +1,10 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
 import { logAction } from "@/lib/action-logger";
 import { revalidatePath } from "next/cache";
+import { requireAdmin } from "@/lib/current-user";
 
-async function requireAdmin() {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Μη εξουσιοδοτημένος");
-  const user = await prisma.user.findUnique({ where: { id: session.user.id } });
-  if (user?.role !== "ADMIN") throw new Error("Απαιτείται δικαίωμα Διαχειριστή");
-  return session.user.id;
-}
 
 export async function updateUserRole(userId: string, role: string) {
   const adminId = await requireAdmin();

@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/current-user";
 import { headers } from "next/headers";
 import { getClientIp } from "@/lib/consent-token";
 
@@ -15,15 +15,18 @@ interface LogParams {
 
 export async function logAction(params: LogParams): Promise<void> {
   try {
-    const session = await auth();
-    if (!session?.user?.id) return;
+    // Το πραγματικό User.id, όχι το `session.user.id`: παλιά tokens κρατούν
+    // Entra GUID, και μια εγγραφή ελέγχου που δεν δείχνει σε υπαρκτό χρήστη
+    // δεν απαντά στο «ποιος το έκανε».
+    const user = await getCurrentUser();
+    if (!user) return;
 
     const hdrs = await headers();
     const ua = hdrs.get("user-agent") ?? "unknown";
 
     await prisma.auditLog.create({
       data: {
-        userId: session.user.id,
+        userId: user.id,
         action: params.action,
         entity: params.entity,
         entityId: params.entityId,

@@ -1,16 +1,11 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { sendDsrCompleted } from "@/lib/email";
 import type { DsrType, DsrStatus } from "@prisma/client";
+import { requireUser as requireAuth } from "@/lib/current-user";
 
-async function requireAuth() {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Μη εξουσιοδοτημένος");
-  return session.user;
-}
 
 export async function listDsrRequests(filters?: { status?: string; type?: string }) {
   await requireAuth();

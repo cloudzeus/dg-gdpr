@@ -1,18 +1,11 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
 import { logAction } from "@/lib/action-logger";
 import { revalidatePath } from "next/cache";
 import { uploadToBunny } from "@/lib/bunny";
+import { requireAdmin } from "@/lib/current-user";
 
-async function requireAdmin() {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Μη εξουσιοδοτημένος");
-  const role = (session.user as any).role;
-  if (role !== "ADMIN") throw new Error("Απαιτείται δικαίωμα Διαχειριστή");
-  return session.user.id;
-}
 
 export async function getOrganization() {
   return prisma.organization.findFirst({ orderBy: { createdAt: "asc" } });

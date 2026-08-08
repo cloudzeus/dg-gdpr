@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { getAdminUser } from "@/lib/current-user";
 
 async function getGraphToken(): Promise<string> {
   const tenantId = process.env.AUTH_MICROSOFT_ENTRA_ID_TENANT_ID;
@@ -29,8 +29,8 @@ async function getGraphToken(): Promise<string> {
 }
 
 export async function GET() {
-  const session = await auth();
-  if (!session?.user?.id || (session.user as any).role !== "ADMIN") {
+  // Ο ρόλος από τη βάση, όχι από το JWT — βλ. lib/current-user.ts
+  if (!(await getAdminUser())) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
