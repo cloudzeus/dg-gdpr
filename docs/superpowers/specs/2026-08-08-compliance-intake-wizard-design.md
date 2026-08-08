@@ -1,0 +1,443 @@
+# Wizard Συμμόρφωσης — Στάδιο 1: Πρόσληψη & Ανάλυση — Design Spec
+
+**Ημερομηνία:** 2026-08-08
+**Project:** dg-gdpr (GDPR Compliance OS)
+
+## Σκοπός
+
+Ένας οδηγός (wizard) που δέχεται μια σύμβαση ή προσφορά — σκαναρισμένη, φωτογραφημένη ή σε Word — τη διαβάζει με OCR, εντοπίζει τα συμβαλλόμενα μέρη, αποφασίζει τον ρόλο του καθενός κατά GDPR, και βγάζει τη λίστα των κενών συμμόρφωσης που πρέπει να καλυφθούν για τη συγκεκριμένη συνεργασία.
+
+Σήμερα η ίδια δουλειά απαιτεί χειροκίνητη ανάγνωση της σύμβασης, χειροκίνητη κρίση ρόλων, και ξεχωριστή επίσκεψη σε κάθε module (DPA, DPIA, πολιτικές, assessment) για να καλυφθούν τα κενά.
+
+## Εύρος
+
+Το συνολικό όραμα είναι end-to-end: από το ανέβασμα της σύμβασης μέχρι το υπογεγραμμένο και κλεισμένο έργο. Αυτό σπάει σε **τρία στάδια, ένα spec το καθένα**:
+
+| Στάδιο | Τι κάνει | Κατάσταση |
+|---|---|---|
+| **1. Πρόσληψη & Ανάλυση** | Upload → OCR → εξαγωγή μερών → ρόλοι → κενά → δημιουργία `Project` | **Αυτό το spec** |
+| 2. Αξιολόγηση & Παραγωγή | Παραγωγή DPA / JCA / DPIA / πολιτικών σε `DRAFT` από τα κενά του Σταδίου 1 | Επόμενο spec |
+| 3. Κύκλωμα υπογραφής | Αποστολή στους αντισυμβαλλόμενους, tracking, υπενθυμίσεις, κλείσιμο έργου | Τρίτο spec |
+
+Ο λόγος του σπασίματος: το OCR σε ελληνικές σκαναρισμένες συμβάσεις είναι το μεγαλύτερο τεχνικό άγνωστο. Το Στάδιο 1 δοκιμάζεται με πραγματικά έγγραφα πριν χτιστεί οτιδήποτε από πάνω του.
+
+### Εντός εύρους (Στάδιο 1)
+
+- Ανέβασμα πολλαπλών εγγράφων (PDF, JPG, PNG, WEBP, DOCX)
+- OCR με κλιμάκωση ποιότητας
+- Δομημένη εξαγωγή μερών, ΑΦΜ, αντικειμένου, ροών δεδομένων, υπεργολάβων
+- Αντιστοίχιση με υπάρχουσες `Company` και εντοπισμός της μαμάς εταιρίας
+- Πρόταση ρόλου GDPR ανά μέρος με αιτιολόγηση
+- Ανάλυση κενών συμμόρφωσης με σοβαρότητα
+- Ανθρώπινη επιβεβαίωση σε κάθε AI έξοδο
+- Commit → δημιουργία `Project` + καταγραφή απαιτούμενων εγγράφων
+
+### Εκτός εύρους (Στάδιο 1)
+
+- Παραγωγή περιεχομένου εγγράφων (Στάδιο 2)
+- Αποστολή προς υπογραφή, tracking υπογραφών (Στάδιο 3)
+- Ολοκλήρωση έργου ως `COMPLETED` (Στάδιο 3)
+
+## Αποφάσεις (από brainstorming)
+
+| Θέμα | Απόφαση | Σκεπτικό |
+|---|---|---|
+| Παραδοτέο τελικού οράματος | End-to-end μέχρι υπογραφή και κλείσιμο έργου | Επιλογή χρήστη |
+| Δόμηση | Τρία στάδια, ξεχωριστό spec το καθένα | Το OCR είναι το ρίσκο — δοκιμάζεται πρώτο |
+| Μορφή αρχείων | Σκαναρισμένα, φωτογραφίες, PDF, Word | Πραγματικότητα του χρήστη |
+| Στρατηγική OCR | Δύο βήματα: OCR βγάζει κείμενο, ξεχωριστό μοντέλο κρίνει | Το κείμενο μένει ως τεκμήριο· ο πάροχος OCR αλλάζει χωρίς να πειραχτεί η λογική |
+| Μοντέλα | Gemini Flash-Lite (OCR), Gemini Pro (κλιμάκωση + εξαγωγή), DeepSeek (νομική κρίση) | Επιλογή χρήστη. «Το Gemini βλέπει, το DeepSeek σκέφτεται νομικά» |
+| Επιλογή εταιριών | Υπόδειξη, όχι δέσμευση — το OCR μπορεί να βρει και άλλα μέρη | Οι υπεργολάβοι δεν πρέπει να χάνονται σε έλεγχο GDPR |
+| Ρόλος μαμάς εταιρίας | Δεν εξάγεται από τη σύμβαση — προκύπτει από την υπάρχουσα κατάσταση της εφαρμογής | Επιλογή χρήστη |
+| Κενά συμμόρφωσης | Auto-create ως `DRAFT`· τα κρίσιμα μπλοκάρουν | Επιλογή χρήστη (Α) |
+| Νέο `PartyRole` enum | Ναι, αντί επέκτασης του `DpaRole` | Το `DpaRole` υποθέτει δύο μέρη· οι συμβάσεις έχουν συχνά τρία ή τέσσερα |
+
+## Αρχιτεκτονική
+
+### Ροή δεδομένων
+
+Pipeline οκτώ σταδίων πάνω από μια εγγραφή `ComplianceIntake`. Κάθε στάδιο γράφει το αποτέλεσμά του στη βάση, άρα η διαδικασία **διακόπτεται και συνεχίζεται**.
+
+```
+ ①  Πρόσληψη        Upload → Bunny → IntakeDocument (ένα ανά αρχείο)
+ ②  Κανονικοποίηση  DOCX → mammoth → κείμενο
+                    PDF/JPG/PNG/WEBP → πάει αυτούσιο στο Gemini
+                                       (δέχεται PDF inline — χωρίς rasterization)
+ ③  OCR             Gemini Flash-Lite → markdown → IntakeDocument.ocrText
+ ④  Πύλη ποιότητας  Καθαρή συνάρτηση, χωρίς AI:
+                    ποσοστό ελληνικών χαρακτήρων, replacement chars,
+                    μήκος ανά σελίδα, παρουσία «ΑΦΜ»/«ΜΕΤΑΞΥ»/«ΣΥΜΒΑΣΗ»
+                    → score 0–1· κάτω από 0.7 ⇒ κλιμάκωση στο Gemini Pro
+                      (`INTAKE_OCR_QUALITY_THRESHOLD`, βαθμονομείται
+                       στη δοκιμή αποδοχής με τις 5 πραγματικές συμβάσεις)
+ ⑤  Εξαγωγή         Gemini Pro, με το αρχείο συνημμένο (όχι μόνο το κείμενο)
+                    → JSON: μέρη+ΑΦΜ, αντικείμενο, διάρκεια, ροές δεδομένων,
+                      υπεργολάβοι, διασυνοριακές μεταφορές,
+                      ειδικές κατηγορίες, υπογράφοντες
+ ⑥  Αντιστοίχιση    Καθαρή συνάρτηση: ΑΦΜ πρώτα → όνομα δεύτερα
+                    Ξεχωρίζει τη μαμά (ΑΦΜ/domain του Organization)
+                    Κατατάσσει: ταίριαξαν | άγνωστα | αναμενόμενα-αλλά-απόντα
+ ⑦  Νομική κρίση    DeepSeek. Είσοδος = εξαγωγή ⑤ + Προφίλ Συμμόρφωσης μαμάς
+                    → ρόλος ανά μέρος + αιτιολόγηση + άρθρα GDPR
+                    → απαιτούμενα έγγραφα + κενά συμμόρφωσης
+ ⑧  Επιβεβαίωση     Ο χρήστης διορθώνει τα πάντα → commit → Project
+```
+
+### Τρεις θεμελιώδεις αρχές
+
+1. **Το AI δεν γράφει ποτέ απευθείας στη βάση.** Κάθε AI έξοδος περνά από Zod validation και μετά από ανθρώπινη επιβεβαίωση. Η ωμή απάντηση αποθηκεύεται ως τεκμήριο.
+2. **Καθαρός διαχωρισμός όρασης και κρίσης.** Το Gemini δεν αποφασίζει ποτέ νομικά· το DeepSeek δεν βλέπει ποτέ pixel. Ένα λάθος OCR δεν μεταμφιέζεται σε λάθος νομική κρίση.
+3. **Κάθε καθαρή συνάρτηση απομονωμένη.** Πύλη ποιότητας, αντιστοίχιση εταιριών, κανονικοποίηση ΑΦΜ, χαρτογράφηση ρόλων, κανόνας μπλοκαρίσματος — δοκιμάζονται χωρίς κανένα API call.
+
+### Προφίλ Συμμόρφωσης της μαμάς εταιρίας
+
+Read-only snapshot που χτίζεται στο βήμα 1 και περνά ως context στο DeepSeek. **Δεν είναι AI** — είναι σκέτα queries.
+
+| Πηγή | Τι δίνει |
+|---|---|
+| `Organization` | Ταυτότητα, ΑΦΜ, domains — για να ξεχωρίζει «εμείς» από «αυτοί» στο OCR |
+| `Assessment` + `ASSESSMENT_CATEGORIES` | Score ανά κατηγορία, ποια μέτρα υπάρχουν, πού είναι τα κενά |
+| `PolicyDocument` (`ACTIVE`) | Ποιες από τις 19 πολιτικές υπάρχουν, ποιες λείπουν, ποιες έληξαν (`reviewDate`) |
+| `DepartmentFlow` | RoPA ανά τμήμα — τι δεδομένα ήδη επεξεργάζεται |
+| `DataMap` | Ροές και ζώνες δεδομένων |
+| `Position.isKeyRole` | Υπάρχει ορισμένος DPO |
+| `TrainingResult` | Έχει εκπαιδευτεί το προσωπικό |
+| `DpaContract` (υπάρχοντα) | Προηγούμενη σχέση με την ίδια εταιρία — αποφυγή διπλογραφής |
+| `DevChecklist`, `ProviderDpa` | Τεχνικά μέτρα, υπάρχοντες υπεργολάβοι |
+
+Έτσι η κρίση δεν είναι «τι λέει το χαρτί» αλλά «τι σημαίνει αυτό το χαρτί για εμάς, δεδομένου του πού βρισκόμαστε».
+
+## Μοντέλο δεδομένων (Prisma)
+
+Τέσσερα νέα μοντέλα. Τα τρία κρέμονται από το `ComplianceIntake` με `onDelete: Cascade`, ώστε μια εγκαταλελειμμένη προσπάθεια να σβήνει καθαρά.
+
+```prisma
+model ComplianceIntake {
+  id              String        @id @default(cuid())
+  userId          String
+  title           String
+  status          IntakeStatus  @default(DRAFT)
+  stage           IntakeStage   @default(UPLOAD)   // πού σταμάτησε — για resume
+
+  extraction      Json?         // ⑤ έξοδος Gemini Pro μετά από Zod
+  reasoning       Json?         // ⑦ έξοδος DeepSeek μετά από Zod
+  profileSnapshot Json?         // το Προφίλ Συμμόρφωσης που δόθηκε ως context
+
+  projectId       String?       // γεμίζει στο commit
+  lastError       String?       @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User             @relation(fields: [userId], references: [id])
+  project   Project?         @relation(fields: [projectId], references: [id])
+  documents IntakeDocument[]
+  parties   IntakeParty[]
+  gaps      IntakeGap[]
+
+  @@index([status])
+}
+
+model IntakeDocument {
+  id         String       @id @default(cuid())
+  intakeId   String
+  fileName   String
+  fileUrl    String                    // Bunny CDN
+  fileHash   String                    // SHA-256 — ανίχνευση διπλοανεβάσματος
+  mimeType   String
+  sizeBytes  Int
+  pageCount  Int?
+  kind       DocumentKind @default(CONTRACT)
+
+  ocrText    String?      @db.LongText // το τεκμήριο
+  ocrModel   String?                   // ποιο μοντέλο το διάβασε τελικά
+  ocrQuality Float?                    // 0–1 από την πύλη ④
+  escalated  Boolean      @default(false)
+  ocrStatus  OcrStatus    @default(PENDING)
+  ocrError   String?      @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  intake ComplianceIntake @relation(fields: [intakeId], references: [id], onDelete: Cascade)
+
+  @@index([intakeId])
+  @@index([fileHash])
+}
+
+model IntakeParty {
+  id               String      @id @default(cuid())
+  intakeId         String
+  companyId        String?                    // null = δεν ταίριαξε
+  isMother         Boolean     @default(false)
+
+  extractedName    String                     // ό,τι είδε το Gemini — αμετάβλητο
+  extractedVat     String?
+  extractedAddress String?     @db.Text
+  extractedRep     String?
+  extractedEmail   String?
+
+  matchMethod      MatchMethod @default(NONE)
+  matchScore       Float?
+
+  proposedRole     PartyRole?                 // τι είπε το DeepSeek
+  confirmedRole    PartyRole?                 // τι είπε ο άνθρωπος
+  roleRationale    String?     @db.Text
+  gdprArticles     Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  intake  ComplianceIntake @relation(fields: [intakeId], references: [id], onDelete: Cascade)
+  company Company?         @relation(fields: [companyId], references: [id])
+
+  @@index([intakeId])
+  @@index([companyId])
+}
+
+model IntakeGap {
+  id                String      @id @default(cuid())
+  intakeId          String
+  category          GapCategory
+  severity          GapSeverity
+  title             String
+  description       String      @db.Text
+  gdprArticles      Json?
+
+  remedyType        RemedyType?                  // τι θα δημιουργηθεί (Στάδιο 2)
+  remedyPayload     Json?                        // παράμετροι για την παραγωγή
+  policyType        PolicyType?                  // αν το remedy είναι πολιτική
+
+  status            GapStatus   @default(OPEN)
+  createdEntityType String?                      // "PolicyDocument" | "DpiaReport" | …
+  createdEntityId   String?
+  dismissReason     String?     @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  intake ComplianceIntake @relation(fields: [intakeId], references: [id], onDelete: Cascade)
+
+  @@index([intakeId])
+}
+```
+
+### Νέα enums
+
+```prisma
+enum IntakeStatus  { DRAFT PROCESSING AWAITING_REVIEW COMMITTED FAILED CANCELLED }
+enum IntakeStage   { UPLOAD OCR EXTRACTION MATCHING REASONING REVIEW }
+enum OcrStatus     { PENDING RUNNING DONE ESCALATED FAILED }
+enum DocumentKind  { CONTRACT OFFER ANNEX CORRESPONDENCE OTHER }
+enum MatchMethod   { VAT NAME MANUAL NONE }
+enum PartyRole     { CONTROLLER PROCESSOR JOINT_CONTROLLER SUB_PROCESSOR RECIPIENT THIRD_PARTY }
+enum GapCategory   { POLICY DPIA ROPA TRAINING TECHNICAL CONTRACT DPO }
+enum GapSeverity   { CRITICAL HIGH MEDIUM LOW }
+enum RemedyType    { CREATE_POLICY CREATE_DPIA CREATE_DPA CREATE_JCA CREATE_ROPA_ENTRY CREATE_ASSESSMENT ASSIGN_DPO CREATE_TRAINING }
+enum GapStatus     { OPEN DRAFTED RESOLVED DISMISSED }
+```
+
+### Ενιαία πηγή αλήθειας
+
+Δύο σκόπιμες παραλείψεις, ώστε καμία πληροφορία να μη ζει σε δύο σημεία:
+
+- **Δεν υπάρχει `ComplianceIntake.motherRole`.** Ο ρόλος της μαμάς είναι το `confirmedRole` του `IntakeParty` με `isMother = true`. Ένα query, μία αλήθεια.
+- **Δεν υπάρχει `ComplianceIntake.requiredDocs`.** Τα απαιτούμενα έγγραφα *είναι* τα `IntakeGap` με `remedyType` που δημιουργεί έγγραφο. Ξεχωριστή λίστα θα ξεσυγχρονιζόταν από τα gaps την πρώτη φορά που ο χρήστης θα απέρριπτε ένα.
+
+Ακριβώς ένα `IntakeParty` ανά intake έχει `isMother = true`. Επιβάλλεται στο application layer κατά το commit — η MySQL δεν υποστηρίζει μερικό unique index.
+
+### Αλλαγές σε υπάρχοντα μοντέλα
+
+Μόνο back-relations. **Κανένα υπάρχον πεδίο δεν αλλάζει.**
+
+- `User` → `complianceIntakes ComplianceIntake[]`
+- `Company` → `intakeParties IntakeParty[]`
+- `Project` → `complianceIntakes ComplianceIntake[]`
+
+### Γιατί νέο `PartyRole` αντί για το υπάρχον `DpaRole`
+
+Το `DpaRole` (`COMPANY_AS_PROCESSOR`, `COMPANY_AS_CONTROLLER`, `JOINT_CONTROLLERS`) περιγράφει τη **σχέση δύο μερών** και δεν επεκτείνεται σε τρία ή τέσσερα. Το `PartyRole` περιγράφει **ένα** μέρος, οπότε δουλεύει με οσαδήποτε.
+
+Στο commit, το ζεύγος *(ρόλος μαμάς, ρόλος αντισυμβαλλομένου)* μεταφράζεται στο υπάρχον `DpaRole` για τη δημιουργία `DpaContract` — καμία αλλαγή στο υπάρχον DPA module:
+
+| Μαμά | Αντισυμβαλλόμενος | `DpaRole` |
+|---|---|---|
+| `CONTROLLER` | `PROCESSOR` | `COMPANY_AS_PROCESSOR` |
+| `PROCESSOR` | `CONTROLLER` | `COMPANY_AS_CONTROLLER` |
+| `JOINT_CONTROLLER` | `JOINT_CONTROLLER` | `JOINT_CONTROLLERS` |
+
+Κάθε άλλος συνδυασμός είναι άκυρος και απορρίπτεται με σφάλμα επικύρωσης.
+
+### Κανόνας μπλοκαρίσματος
+
+| Πύλη | Απαίτηση |
+|---|---|
+| **Commit** intake → δημιουργία `Project` | Κάθε `CRITICAL` gap πρέπει να είναι `DRAFTED` ή `DISMISSED` με γραπτή αιτιολογία |
+| **Ολοκλήρωση** έργου (`Project.COMPLETED`) — *Στάδιο 3* | Κάθε `CRITICAL` gap πρέπει να είναι `RESOLVED` |
+
+Το `dismissReason` είναι υποχρεωτικό στο `DISMISSED`. Σε έλεγχο, το «το αγνοήσαμε» χρειάζεται υπογραφή.
+
+### Migration
+
+`prisma db push` — **όχι** `migrate dev`, σύμφωνα με τη στρατηγική του project (το ιστορικό της απομακρυσμένης βάσης δεν είναι συγχρονισμένο). Μόνο προσθήκες, μηδενικός κίνδυνος απώλειας δεδομένων.
+
+## Δομή αρχείων
+
+Νέα διαδρομή `/(app)/intake` (λίστα) και `/(app)/intake/[id]` (η ροή).
+
+```
+src/
+  actions/
+    intake.ts                    # server actions: create, upload, confirm, commit
+  lib/
+    gemini.ts                    # πελάτης Gemini (fetch, όπως το deepseek.ts)
+    intake/
+      ocr.ts                     # ③ κλήση OCR + κλιμάκωση
+      quality-gate.ts            # ④ καθαρή συνάρτηση
+      quality-gate.test.ts
+      extraction.ts              # ⑤ κλήση Gemini Pro + Zod
+      extraction-schema.ts       # Zod schemas
+      extraction-schema.test.ts
+      vat.ts                     # κανονικοποίηση ΑΦΜ — καθαρή
+      vat.test.ts
+      company-match.ts           # ⑥ καθαρή συνάρτηση
+      company-match.test.ts
+      compliance-profile.ts      # χτίσιμο προφίλ μαμάς (queries)
+      reasoning.ts               # ⑦ κλήση DeepSeek + Zod
+      reasoning-schema.ts
+      role-mapping.ts            # PartyRole → DpaRole — καθαρή
+      role-mapping.test.ts
+      blocking-rule.ts           # κανόνας commit — καθαρή
+      blocking-rule.test.ts
+  app/(app)/intake/
+    page.tsx                     # λίστα intakes (server component)
+    [id]/page.tsx                # ο wizard (server component)
+    [id]/steps/*.tsx             # "use client" μόνο όπου χρειάζεται
+  app/api/intake/
+    ocr/route.ts                 # ένα request ανά έγγραφο
+    extract/route.ts
+    reason/route.ts
+```
+
+Server components για κάθε ανάγνωση. `"use client"` μόνο στο upload, στο polling του βήματος 3, και στις φόρμες των βημάτων 4–5.
+
+**Νέα εξάρτηση:** `mammoth` (DOCX → κείμενο). Τίποτα άλλο — το Gemini είναι σκέτο `fetch`, όπως ήδη το DeepSeek.
+
+**Model IDs:** τα ακριβή ονόματα των μοντέλων Gemini κλειδώνονται στην υλοποίηση από τα τρέχοντα Google docs και μπαίνουν σε env vars (`GEMINI_MODEL_LITE`, `GEMINI_MODEL_PRO`), όχι hardcoded.
+
+**Νέα env vars:** `GEMINI_API_KEY`, `GEMINI_MODEL_LITE`, `GEMINI_MODEL_PRO`, `INTAKE_MAX_PRO_ESCALATIONS` (προεπιλογή 5), `INTAKE_OCR_QUALITY_THRESHOLD` (προεπιλογή 0.7).
+
+## Τα βήματα του wizard
+
+Το `stage` στη βάση θυμάται πού σταμάτησε ο χρήστης.
+
+| # | Βήμα | Τι κάνει ο χρήστης | Τι κάνει το σύστημα |
+|---|---|---|---|
+| **1** | **Έναρξη** | Τίτλος + επιλογή εταιριών *(προαιρετική υπόδειξη)* | Χτίζει το Προφίλ Συμμόρφωσης, το αποθηκεύει στο `profileSnapshot` |
+| **2** | **Έγγραφα** | Drag & drop· ορίζει είδος ανά αρχείο | Ανεβάζει στο Bunny, δημιουργεί `IntakeDocument` |
+| **3** | **Ανάγνωση** | Παρακολουθεί | OCR ανά έγγραφο· δείχνει μοντέλο, ποιότητα, κλιμακώσεις |
+| **4** | **Μέρη & Ρόλοι** | Επιβεβαιώνει/διορθώνει | Εξαγωγή + αντιστοίχιση + πρόταση ρόλων |
+| **5** | **Κενά συμμόρφωσης** | Εγκρίνει ή απορρίπτει *(με αιτιολογία)* | Λίστα κενών με σοβαρότητα και προτεινόμενο remedy |
+| **6** | **Σύνοψη** | Πατάει «Δημιουργία έργου» | Δημιουργεί `Project`, κλειδώνει το intake ως `COMMITTED` |
+
+### Βήμα 3 — εκτέλεση χωρίς timeout
+
+Μια 40σέλιδη σύμβαση δεν διαβάζεται μέσα σε ένα request. Ο client κάνει **ένα fetch ανά έγγραφο**, παράλληλα· κάθε request διαβάζει ένα αρχείο και ενημερώνει το `ocrStatus`. Καμία ουρά, κανένα worker.
+
+Αν κλείσει ο browser, το intake ξανανοίγει και συνεχίζει όσα έμειναν `PENDING` — η κατάσταση είναι στη βάση, όχι στη μνήμη. Αν αργότερα χρειαστεί πραγματικό background processing, το υπάρχον `api/cron` το αναλαμβάνει χωρίς αλλαγή στο μοντέλο δεδομένων.
+
+### Βήμα 4 — η οθόνη συμφιλίωσης
+
+Τρεις ομάδες:
+
+- **Ταίριαξαν** — με ένδειξη *πώς* (ΑΦΜ ή όνομα) και score. Η μαμά σημειώνεται ξεχωριστά.
+- **Άγνωστα** — βρέθηκαν στη σύμβαση, δεν υπάρχουν στη βάση. Κουμπί «Δημιουργία εταιρίας» που προσυμπληρώνει από την εξαγωγή.
+- **Απόντα** — επιλέχθηκαν στο βήμα 1 αλλά δεν εμφανίζονται στο έγγραφο. Προειδοποίηση, όχι σφάλμα.
+
+Κάθε μέρος έχει τον προτεινόμενο ρόλο με **ορατή αιτιολόγηση και άρθρα GDPR**. Η αλλαγή ρόλου κρατά και τα δύο: `proposedRole` και `confirmedRole`. Σε έλεγχο, το «τι πρότεινε το σύστημα και τι αποφάσισε ο άνθρωπος» είναι ακριβώς η ερώτηση που πέφτει.
+
+### Βήμα 5 — τα κενά
+
+Ταξινομημένα κατά σοβαρότητα, με τα `CRITICAL` πάνω και μη-συμπτυσσόμενα. Απόρριψη κρίσιμου κενού απαιτεί γραπτή αιτιολογία, αλλιώς το κουμπί του βήματος 6 μένει ανενεργό.
+
+### Βήμα 6 — τι ακριβώς κάνει το commit
+
+Σε μία transaction:
+
+1. Δημιουργεί `Project` με `name` = ο τίτλος του intake, `clientName` = η επωνυμία του αντισυμβαλλομένου με `confirmedRole` αντίθετο της μαμάς *(το `Project.clientName` είναι υποχρεωτικό `String`)*, και `riskLevel` από τη μέγιστη σοβαρότητα των ανοιχτών gaps: `CRITICAL` → `CRITICAL`, `HIGH` → `HIGH`, αλλιώς `MEDIUM`.
+2. Δημιουργεί `Company` για όσα «άγνωστα» μέρη ενέκρινε ο χρήστης στο βήμα 4, και συνδέει τα αντίστοιχα `IntakeParty.companyId`.
+3. Θέτει `ComplianceIntake.projectId` και `status = COMMITTED`. Το `stage` μένει `REVIEW`.
+4. Καταγράφει στο `AuditLog`.
+
+Αν οποιοδήποτε βήμα αποτύχει, η transaction κάνει rollback και το intake μένει στο `AWAITING_REVIEW` — δεν μένει ποτέ μισοδημιουργημένο `Project`.
+
+### Η τομή με το Στάδιο 2
+
+Το commit **αποφασίζει** τι έγγραφα χρειάζονται, καταγράφοντάς τα ως `IntakeGap` με `remedyType`. **Δεν παράγει ακόμα περιεχόμενο.** Η παραγωγή των DPA/DPIA/πολιτικών σε `DRAFT` είναι το Στάδιο 2, που διαβάζει αυτά ακριβώς τα gaps.
+
+### Επαναχρησιμοποίηση υπαρχόντων
+
+- `client-picker.tsx` — επιλογή εταιριών (βήμα 1)
+- `risk-matrix.tsx` — προβολή κενών (βήμα 5)
+- Patterns του `companies-manager.tsx` — inline δημιουργία εταιρίας (βήμα 4)
+- `bunny.ts` — ανέβασμα αρχείων
+- `action-logger.ts` — καταγραφή σε `AuditLog`
+
+### Όρια αρχείων
+
+PDF, JPG, PNG, WEBP, DOCX. Έως 20 MB ανά αρχείο, έως 20 αρχεία ανά intake. Ό,τι άλλο απορρίπτεται **στο upload** με σαφές μήνυμα, όχι αργότερα στο OCR.
+
+## Χειρισμός σφαλμάτων
+
+Αρχή: **καμία αποτυχία δεν χάνει δουλειά.**
+
+| Αστοχία | Αντίδραση |
+|---|---|
+| OCR αποτυγχάνει σε ένα έγγραφο | Μόνο αυτό γίνεται `FAILED` — τα υπόλοιπα προχωρούν. Κουμπί επανάληψης ανά έγγραφο. |
+| Χαμηλή ποιότητα **και μετά** το Pro | Το έγγραφο σημαδεύεται ορατά ως αναξιόπιστο. Ο χρήστης βλέπει το `ocrText` σε επεξεργάσιμο πεδίο και το διορθώνει ή το επικολλά ο ίδιος. |
+| Gemini/DeepSeek εκτός λειτουργίας | Το intake μένει στο `stage` του, `lastError` γεμίζει, το βήμα δείχνει «Δοκίμασε ξανά». Τίποτα δεν σβήνεται. |
+| Χαλασμένο JSON από AI | Zod → μία επανάληψη με αυστηρότερο prompt → αν ξαναποτύχει, ο χρήστης βλέπει την ωμή απάντηση και συμπληρώνει με το χέρι. |
+| Δεν εντοπίζεται η μαμά εταιρία | Μπλοκάρει στο βήμα 4: «ποιο από αυτά τα μέρη είμαστε εμείς;» — ή σύνδεσμος να συμπληρωθεί το ΑΦΜ στο `Organization`. |
+| Ίδιο έγγραφο ξανα-ανεβαίνει | Έλεγχος `fileHash`· αν υπάρχει σε άλλο intake, προειδοποίηση με σύνδεσμο — όχι απαγόρευση. |
+| Κόστος ξεφεύγει | `INTAKE_MAX_PRO_ESCALATIONS` ανά intake. Στο όριο, ο χρήστης εγκρίνει ρητά τη συνέχεια. |
+
+Κάθε κλήση AI καταγράφεται στο `AuditLog` μέσω του `action-logger.ts`: ποιο μοντέλο, ποιο έγγραφο, πόσα tokens, τι επέστρεψε. Χωρίς αυτό, το «γιατί το σύστημα είπε ότι είμαστε Processor» δεν απαντιέται έξι μήνες μετά.
+
+## Δοκιμές
+
+Το ντετερμινιστικό κομμάτι δοκιμάζεται σκληρά· το AI κομμάτι με fixtures.
+
+### Καθαρές συναρτήσεις — vitest, καμία κλήση δικτύου
+
+- **Πύλη ποιότητας** — καλό ελληνικό κείμενο, γκαρμπλαρισμένο, κενό, λατινικά αντί ελληνικών, μισή σελίδα. Ελέγχεται και ότι το κατώφλι κλιμάκωσης τηρείται ακριβώς στα όριά του.
+- **Κανονικοποίηση ΑΦΜ** — κενά, παύλες, πρόθεμα `EL`, 8ψήφια vs 9ψήφια.
+- **Αντιστοίχιση ονόματος** — «ΚΟΣΜΟΚΑΡ Α.Ε.» ↔ «Kosmocar AE» ↔ «ΚΟΣΜΟΚΑΡ ΑΝΩΝΥΜΟΣ ΕΤΑΙΡΕΙΑ»· τόνοι· ελληνικά/λατινικά ομόγραφα (Α/A, Ε/E, Ο/O, Ρ/P, Χ/X) — κλασική παγίδα σε OCR.
+- **Χαρτογράφηση `PartyRole` → `DpaRole`** — και τα τρία έγκυρα ζεύγη, μαζί με τα άκυρα.
+- **Κανόνας μπλοκαρίσματος** — κρίσιμο κενό `OPEN` / `DRAFTED` / `DISMISSED` χωρίς αιτιολογία / `DISMISSED` με αιτιολογία.
+
+### Zod schemas — fixtures από αληθοφανείς AI εξόδους
+
+Πλήρης απάντηση, με λείποντα πεδία, με λάθος τύπους, με έξτρα πεδία, τυλιγμένη σε code fence.
+
+### Κλήσεις AI
+
+Mocked `fetch`. Καμία δοκιμή δεν χτυπά πραγματικό API — αλλιώς το test suite κοστίζει χρήματα και σπάει όταν πέφτει ο πάροχος.
+
+### Ανθρώπινη αποδοχή πριν κλείσει το στάδιο
+
+Πέντε **πραγματικές** σκαναρισμένες συμβάσεις περνούν από τη ροή. Μετρώνται τρία πράγματα:
+
+1. Σωστά εξαχθέντα ΑΦΜ
+2. Σωστά προτεινόμενοι ρόλοι
+3. Πόσες φορές χρειάστηκε κλιμάκωση στο Pro
+
+Αυτοί οι αριθμοί κρίνουν αν το Στάδιο 2 ξεκινά ή αν πρώτα βελτιώνεται η πρόσληψη.
+
+## Κριτήρια επιτυχίας
+
+- Ανεβάζεις σκαναρισμένη ελληνική σύμβαση και ο wizard εντοπίζει σωστά τα μέρη με τα ΑΦΜ τους
+- Προτείνει ρόλο GDPR ανά μέρος με αιτιολόγηση και άρθρα, και ο χρήστης μπορεί να τον αλλάξει
+- Η μαμά εταιρία εντοπίζεται αυτόματα και ο ρόλος της κρίνεται με βάση την υπάρχουσα κατάσταση συμμόρφωσης, όχι μόνο τη σύμβαση
+- Τα κενά συμμόρφωσης εμφανίζονται με σοβαρότητα και τα κρίσιμα μπλοκάρουν το commit
+- Η διαδικασία διακόπτεται και συνεχίζεται χωρίς απώλεια δεδομένων
+- Κάθε AI απόφαση είναι ανιχνεύσιμη στο `AuditLog`
