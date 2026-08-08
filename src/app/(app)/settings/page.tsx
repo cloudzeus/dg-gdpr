@@ -8,6 +8,8 @@ import { Shield, Building2, GraduationCap, ChevronRight, KeyRound } from "lucide
 import Link from "next/link";
 import { getLicense } from "@/actions/license";
 import { LicenseEditor } from "@/components/modules/license-editor";
+import { getOrganization } from "@/actions/organization";
+import { findOrgGaps } from "@/lib/org-completeness";
 
 export default async function SettingsPage() {
   const session = await auth();
@@ -30,6 +32,12 @@ export default async function SettingsPage() {
 
   if (!user) return null;
   const license = user.isSuperAdmin ? await getLicense() : null;
+
+  // Τα στοιχεία εταιρείας τα διαχειρίζονται μόνο διαχειριστές (/admin/* είναι ADMIN-only).
+  const isAdmin = user.role === "ADMIN";
+  const org = isAdmin ? await getOrganization() : null;
+  const orgGaps = isAdmin ? findOrgGaps(org) : [];
+  const orgMissingRequired = orgGaps.some((g) => g.severity === "required");
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -94,6 +102,33 @@ export default async function SettingsPage() {
                 <LicenseEditor license={license} />
               </CardContent>
             </Card>
+          )}
+
+          {/* Company details — admin only */}
+          {isAdmin && (
+            <Link href="/admin/company">
+              <Card className="hover:shadow-md transition-shadow cursor-pointer">
+                <CardContent className="p-4 flex items-center gap-4">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary shrink-0">
+                    <Building2 className="h-5 w-5" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold">Στοιχεία Εταιρείας</p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {orgGaps.length === 0
+                        ? org?.name ?? "Επωνυμία, ΑΦΜ, έδρα, domains"
+                        : `Λείπουν: ${orgGaps.map((g) => g.label).join(", ")}`}
+                    </p>
+                  </div>
+                  {orgGaps.length > 0 && (
+                    <Badge variant={orgMissingRequired ? "destructive" : "warning"}>
+                      {orgMissingRequired ? "Ελλιπή" : "Συμπληρώστε"}
+                    </Badge>
+                  )}
+                  <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                </CardContent>
+              </Card>
+            </Link>
           )}
 
           {/* My training */}

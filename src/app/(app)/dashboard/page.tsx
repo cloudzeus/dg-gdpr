@@ -13,6 +13,9 @@ import {
   AlertTriangle, CheckCircle2, Clock, TrendingUp, ClipboardCheck,
 } from "lucide-react";
 import Link from "next/link";
+import { getOrganization } from "@/actions/organization";
+import { findOrgGaps } from "@/lib/org-completeness";
+import { OrgGapsNotice } from "@/components/modules/org-gaps-notice";
 
 async function getDashboardData(userId: string) {
   const [
@@ -65,6 +68,11 @@ export default async function DashboardPage() {
 
   const grade = scoreToGrade(data.totalScore);
 
+  const userRole = (session?.user as any)?.role as string | undefined;
+
+  // Μόνο διαχειριστές μπορούν να διορθώσουν τα στοιχεία εταιρείας (/admin/* είναι ADMIN-only).
+  const orgGaps = userRole === "ADMIN" ? findOrgGaps(await getOrganization()) : [];
+
   const stats = [
     { label: "Ενεργά Έργα", value: data.projectsCount, icon: Code2, color: "text-blue-500", href: "/dev" },
     { label: "Έλεγχοι Privacy", value: data.checklistsCount, icon: Shield, color: "text-green-500", href: "/dev" },
@@ -76,10 +84,12 @@ export default async function DashboardPage() {
     <div className="flex flex-col h-full overflow-hidden">
       <Topbar
         userName={session?.user?.name}
-        userRole={(session?.user as any)?.role}
+        userRole={userRole}
         pageTitle="Πίνακας Ελέγχου"
       />
       <main className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
+        <OrgGapsNotice gaps={orgGaps} href="/admin/company" />
+
         {/* Welcome */}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
