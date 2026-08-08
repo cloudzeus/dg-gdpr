@@ -46,17 +46,95 @@
 ```prisma
 // ─── Compliance Intake (Wizard Στάδιο 1) ─────────────────────────────────────
 
-enum IntakeStatus  { DRAFT PROCESSING AWAITING_REVIEW COMMITTED FAILED CANCELLED }
-enum IntakeStage   { UPLOAD OCR EXTRACTION MATCHING REASONING REVIEW }
-enum OcrStatus     { PENDING RUNNING DONE ESCALATED FAILED }
-enum DocumentKind  { CONTRACT OFFER ANNEX CORRESPONDENCE OTHER }
-enum MatchMethod   { VAT NAME MANUAL NONE }
-enum PartySide     { OWN_MOTHER OWN_GROUP EXTERNAL }
-enum PartyRole     { CONTROLLER PROCESSOR JOINT_CONTROLLER SUB_PROCESSOR RECIPIENT THIRD_PARTY }
-enum GapCategory   { POLICY DPIA ROPA TRAINING TECHNICAL CONTRACT DPO }
-enum GapSeverity   { CRITICAL HIGH MEDIUM LOW }
-enum RemedyType    { CREATE_POLICY CREATE_DPIA CREATE_DPA CREATE_JCA CREATE_ROPA_ENTRY CREATE_ASSESSMENT ASSIGN_DPO CREATE_TRAINING }
-enum GapStatus     { OPEN DRAFTED RESOLVED DISMISSED }
+enum IntakeStatus {
+  DRAFT
+  PROCESSING
+  AWAITING_REVIEW
+  COMMITTED
+  FAILED
+  CANCELLED
+}
+
+enum OcrStatus {
+  PENDING
+  RUNNING
+  DONE
+  FAILED
+}
+
+enum IntakeStage {
+  UPLOAD
+  OCR
+  EXTRACTION
+  MATCHING
+  REASONING
+  REVIEW
+}
+
+enum DocumentKind {
+  CONTRACT
+  OFFER
+  ANNEX
+  CORRESPONDENCE
+  OTHER
+}
+
+enum MatchMethod {
+  VAT
+  NAME
+  MANUAL
+  NONE
+}
+
+enum PartySide {
+  OWN_MOTHER
+  OWN_GROUP
+  EXTERNAL
+}
+
+enum PartyRole {
+  CONTROLLER
+  PROCESSOR
+  JOINT_CONTROLLER
+  SUB_PROCESSOR
+  RECIPIENT
+  THIRD_PARTY
+}
+
+enum GapCategory {
+  POLICY
+  DPIA
+  ROPA
+  TRAINING
+  TECHNICAL
+  CONTRACT
+  DPO
+}
+
+enum GapSeverity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum RemedyType {
+  CREATE_POLICY
+  CREATE_DPIA
+  CREATE_DPA
+  CREATE_JCA
+  CREATE_ROPA_ENTRY
+  CREATE_ASSESSMENT
+  ASSIGN_DPO
+  CREATE_TRAINING
+}
+
+enum GapStatus {
+  OPEN
+  DRAFTED
+  RESOLVED
+  DISMISSED
+}
 ```
 
 - [ ] **Step 2: Πρόσθεσε τα μοντέλα κάτω από τα enums**
@@ -86,8 +164,7 @@ model ComplianceIntake {
   gaps      IntakeGap[]
 
   @@index([status])
-  @@index([userId])
-  @@index([projectId])
+  @@index([userId, status])
 }
 
 model IntakeDocument {
@@ -113,7 +190,6 @@ model IntakeDocument {
 
   intake ComplianceIntake @relation(fields: [intakeId], references: [id], onDelete: Cascade)
 
-  @@index([intakeId])
   @@index([fileHash])
 }
 
@@ -143,8 +219,6 @@ model IntakeParty {
   intake  ComplianceIntake @relation(fields: [intakeId], references: [id], onDelete: Cascade)
   company Company?         @relation(fields: [companyId], references: [id])
 
-  @@index([intakeId])
-  @@index([companyId])
 }
 
 model IntakeGap {
@@ -169,10 +243,10 @@ model IntakeGap {
   updatedAt DateTime @updatedAt
 
   intake ComplianceIntake @relation(fields: [intakeId], references: [id], onDelete: Cascade)
-
-  @@index([intakeId])
 }
 ```
+
+Οι δείκτες σε στήλες ξένου κλειδιού παραλείπονται σκόπιμα: η InnoDB δημιουργεί ήδη έναν μαζί με κάθε περιορισμό `FOREIGN KEY`, οπότε ένας ρητός `@@index` θα ήταν δεύτερος δείκτης για την ίδια δουλειά.
 
 - [ ] **Step 3: Πρόσθεσε τα back-relations στα υπάρχοντα μοντέλα**
 
@@ -2864,7 +2938,7 @@ export async function POST(req: NextRequest) {
         ocrModel: result.model,
         ocrQuality: result.quality,
         escalated: result.escalated,
-        ocrStatus: result.escalated ? "ESCALATED" : "DONE",
+        ocrStatus: "DONE",
       },
     });
 
