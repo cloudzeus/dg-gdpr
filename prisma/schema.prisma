@@ -76,6 +76,7 @@ model User {
   trainingResults   TrainingResult[]
   dpaContracts      DpaContract[]
   dpiaReports       DpiaReport[]
+  complianceIntakes ComplianceIntake[]
 }
 
 enum UserRole {
@@ -253,7 +254,8 @@ model Company {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
-  dpaContracts DpaContract[]
+  dpaContracts  DpaContract[]
+  intakeParties IntakeParty[]
 
   @@index([name])
 }
@@ -284,12 +286,13 @@ model Project {
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
-  devChecklists DevChecklist[]
-  dbAccessLogs  DbAccessLog[]
-  dpaContracts  DpaContract[]
-  dpiaReports   DpiaReport[]
-  auditLogs     AuditLog[]
-  assessments   Assessment[]
+  devChecklists     DevChecklist[]
+  dbAccessLogs      DbAccessLog[]
+  dpaContracts      DpaContract[]
+  dpiaReports       DpiaReport[]
+  auditLogs         AuditLog[]
+  assessments       Assessment[]
+  complianceIntakes ComplianceIntake[]
 }
 
 enum ProjectStatus {
@@ -963,4 +966,208 @@ model WikiArticle {
 
   @@index([category])
   @@index([status])
+}
+
+// ─── Compliance Intake (Wizard Στάδιο 1) ─────────────────────────────────────
+
+enum IntakeStatus {
+  DRAFT
+  PROCESSING
+  AWAITING_REVIEW
+  COMMITTED
+  FAILED
+  CANCELLED
+}
+
+enum IntakeStage {
+  UPLOAD
+  OCR
+  EXTRACTION
+  MATCHING
+  REASONING
+  REVIEW
+}
+
+enum OcrStatus {
+  PENDING
+  RUNNING
+  DONE
+  ESCALATED
+  FAILED
+}
+
+enum DocumentKind {
+  CONTRACT
+  OFFER
+  ANNEX
+  CORRESPONDENCE
+  OTHER
+}
+
+enum MatchMethod {
+  VAT
+  NAME
+  MANUAL
+  NONE
+}
+
+enum PartySide {
+  OWN_MOTHER
+  OWN_GROUP
+  EXTERNAL
+}
+
+enum PartyRole {
+  CONTROLLER
+  PROCESSOR
+  JOINT_CONTROLLER
+  SUB_PROCESSOR
+  RECIPIENT
+  THIRD_PARTY
+}
+
+enum GapCategory {
+  POLICY
+  DPIA
+  ROPA
+  TRAINING
+  TECHNICAL
+  CONTRACT
+  DPO
+}
+
+enum GapSeverity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum RemedyType {
+  CREATE_POLICY
+  CREATE_DPIA
+  CREATE_DPA
+  CREATE_JCA
+  CREATE_ROPA_ENTRY
+  CREATE_ASSESSMENT
+  ASSIGN_DPO
+  CREATE_TRAINING
+}
+
+enum GapStatus {
+  OPEN
+  DRAFTED
+  RESOLVED
+  DISMISSED
+}
+
+model ComplianceIntake {
+  id              String        @id @default(cuid())
+  userId          String
+  title           String
+  status          IntakeStatus  @default(DRAFT)
+  stage           IntakeStage   @default(UPLOAD)
+
+  extraction      Json?
+  reasoning       Json?
+  profileSnapshot Json?
+
+  projectId       String?
+  lastError       String?       @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User             @relation(fields: [userId], references: [id])
+  project   Project?         @relation(fields: [projectId], references: [id])
+  documents IntakeDocument[]
+  parties   IntakeParty[]
+  gaps      IntakeGap[]
+
+  @@index([status])
+  @@index([userId])
+  @@index([projectId])
+}
+
+model IntakeDocument {
+  id         String       @id @default(cuid())
+  intakeId   String
+  fileName   String
+  fileUrl    String
+  fileHash   String
+  mimeType   String
+  sizeBytes  Int
+  pageCount  Int?
+  kind       DocumentKind @default(CONTRACT)
+
+  ocrText    String?      @db.LongText
+  ocrModel   String?
+  ocrQuality Float?
+  escalated  Boolean      @default(false)
+  ocrStatus  OcrStatus    @default(PENDING)
+  ocrError   String?      @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  intake ComplianceIntake @relation(fields: [intakeId], references: [id], onDelete: Cascade)
+
+  @@index([intakeId])
+  @@index([fileHash])
+}
+
+model IntakeParty {
+  id               String      @id @default(cuid())
+  intakeId         String
+  companyId        String?
+  side             PartySide   @default(EXTERNAL)
+
+  extractedName    String
+  extractedVat     String?
+  extractedAddress String?     @db.Text
+  extractedRep     String?
+  extractedEmail   String?
+
+  matchMethod      MatchMethod @default(NONE)
+  matchScore       Float?
+
+  proposedRole     PartyRole?
+  confirmedRole    PartyRole?
+  roleRationale    String?     @db.Text
+  gdprArticles     Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  intake  ComplianceIntake @relation(fields: [intakeId], references: [id], onDelete: Cascade)
+  company Company?         @relation(fields: [companyId], references: [id])
+
+  @@index([intakeId])
+  @@index([companyId])
+}
+
+model IntakeGap {
+  id                String      @id @default(cuid())
+  intakeId          String
+  category          GapCategory
+  severity          GapSeverity
+  title             String
+  description       String      @db.Text
+  gdprArticles      Json?
+
+  remedyType        RemedyType?
+  remedyPayload     Json?
+  policyType        PolicyType?
+
+  status            GapStatus   @default(OPEN)
+  createdEntityType String?
+  createdEntityId   String?
+  dismissReason     String?     @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  intake ComplianceIntake @relation(fields: [intakeId], references: [id], onDelete: Cascade)
+
+  @@index([intakeId])
 }
