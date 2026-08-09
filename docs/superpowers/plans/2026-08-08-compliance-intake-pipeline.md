@@ -603,6 +603,29 @@ describe("matchParty", () => {
     expect(matchParty({ name: "DGSOFT", vat: "997939640" }, [])).toBeNull();
   });
 
+  it("ΔΕΝ μαντεύει όταν δύο εταιρίες έχουν το ίδιο κανονικοποιημένο όνομα", () => {
+    const alfa1: MatchCandidate = {
+      id: "a1", name: "ΑΛΦΑ", legalName: "ΑΛΦΑ Α.Ε.", vatNumber: "094014201", side: "EXTERNAL",
+    };
+    const alfa2: MatchCandidate = {
+      id: "a2", name: "ΑΛΦΑ ΕΠΕ", legalName: null, vatNumber: "094059163", side: "EXTERNAL",
+    };
+    // Και οι δύο σειρές — αυτό ακριβώς είναι το ζητούμενο.
+    expect(matchParty({ name: "ΑΛΦΑ", vat: null }, [alfa1, alfa2])).toBeNull();
+    expect(matchParty({ name: "ΑΛΦΑ", vat: null }, [alfa2, alfa1])).toBeNull();
+  });
+
+  it("ασάφεια ΑΦΜ: προτιμά τη δική μας εταιρία, ανεξάρτητα από τη σειρά", () => {
+    const asOrg: MatchCandidate = {
+      id: "org", name: "DGSOFT", legalName: null, vatNumber: "997939640", side: "OWN_MOTHER",
+    };
+    const asCompany: MatchCandidate = {
+      id: "dup", name: "DGSOFT", legalName: null, vatNumber: "997939640", side: "EXTERNAL",
+    };
+    expect(matchParty({ name: "-", vat: "997939640" }, [asCompany, asOrg])?.candidateId).toBe("org");
+    expect(matchParty({ name: "-", vat: "997939640" }, [asOrg, asCompany])?.candidateId).toBe("org");
+  });
+
   it("αγνοεί υποψήφιους χωρίς ΑΦΜ κατά την αντιστοίχιση ΑΦΜ", () => {
     const noVat: MatchCandidate = { id: "x", name: "Χ", legalName: null, vatNumber: null, side: "EXTERNAL" };
     expect(matchParty({ name: "άσχετο", vat: "111111111" }, [noVat])).toBeNull();
@@ -729,18 +752,31 @@ export function matchParty(
   // παραμένει η ανθρώπινη επιβεβαίωση στο βήμα 4 του wizard.
   const vat = normalizeVat(party.vat);
   if (vat && isValidGreekVat(vat)) {
-    const hit = candidates.find((c) => normalizeVat(c.vatNumber) === vat);
+    const hits = candidates.filter((c) => normalizeVat(c.vatNumber) === vat);
+    // Το Company.vatNumber είναι @unique, οπότε σύγκρουση σημαίνει ότι η μαμά
+    // υπάρχει και ως εγγραφή Company. Προτιμάμε τη δική μας πλευρά: το «αυτοί
+    // είμαστε εμείς» είναι η πιο βαριά πληροφορία και δεν πρέπει να εξαρτάται
+    // από τη σειρά του πίνακα.
+    const hit = hits.find((c) => c.side !== "EXTERNAL") ?? hits[0];
     if (hit) return { candidateId: hit.id, method: "VAT", score: 1, side: hit.side };
   }
 
   const name = normalizeCompanyName(party.name);
   if (name) {
-    const hit = candidates.find(
+    const hits = candidates.filter(
       (c) =>
         normalizeCompanyName(c.name) === name ||
         normalizeCompanyName(c.legalName) === name
     );
-    if (hit) return { candidateId: hit.id, method: "NAME", score: 0.8, side: hit.side };
+
+    // Ένα ταίριασμα: το δεχόμαστε. Περισσότερα: ΔΕΝ μαντεύουμε. Δύο εταιρίες
+    // μπορούν κάλλιστα να λέγονται «ΑΛΦΑ» με διαφορετικό ΑΦΜ, και η επιλογή
+    // «όποια βρέθηκε πρώτη» εξαρτάται από τη σειρά του πίνακα. Το μέρος
+    // επιστρέφεται ως αταίριαστο και το λύνει ο άνθρωπος στο βήμα 4 — μια
+    // λανθασμένη αντιστοίχιση φαίνεται σωστή και δεν ξανακοιτάζεται ποτέ.
+    if (hits.length === 1) {
+      return { candidateId: hits[0].id, method: "NAME", score: 0.8, side: hits[0].side };
+    }
   }
 
   return null;
