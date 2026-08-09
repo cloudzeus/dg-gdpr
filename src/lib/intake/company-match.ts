@@ -108,18 +108,31 @@ export function matchParty(
   // παραμένει η ανθρώπινη επιβεβαίωση στο βήμα 4 του wizard.
   const vat = normalizeVat(party.vat);
   if (vat && isValidGreekVat(vat)) {
-    const hit = candidates.find((c) => normalizeVat(c.vatNumber) === vat);
+    const hits = candidates.filter((c) => normalizeVat(c.vatNumber) === vat);
+    // Το Company.vatNumber είναι @unique, οπότε σύγκρουση σημαίνει ότι η μαμά
+    // υπάρχει και ως εγγραφή Company. Προτιμάμε τη δική μας πλευρά: το «αυτοί
+    // είμαστε εμείς» είναι η πιο βαριά πληροφορία και δεν πρέπει να εξαρτάται
+    // από τη σειρά του πίνακα.
+    const hit = hits.find((c) => c.side !== "EXTERNAL") ?? hits[0];
     if (hit) return { candidateId: hit.id, method: "VAT", score: 1, side: hit.side };
   }
 
   const name = normalizeCompanyName(party.name);
   if (name) {
-    const hit = candidates.find(
+    const hits = candidates.filter(
       (c) =>
         normalizeCompanyName(c.name) === name ||
         normalizeCompanyName(c.legalName) === name
     );
-    if (hit) return { candidateId: hit.id, method: "NAME", score: 0.8, side: hit.side };
+
+    // Ένα ταίριασμα: το δεχόμαστε. Περισσότερα: ΔΕΝ μαντεύουμε. Δύο εταιρίες
+    // μπορούν κάλλιστα να λέγονται «ΑΛΦΑ» με διαφορετικό ΑΦΜ, και η επιλογή
+    // «όποια βρέθηκε πρώτη» εξαρτάται από τη σειρά του πίνακα. Το μέρος
+    // επιστρέφεται ως αταίριαστο και το λύνει ο άνθρωπος στο βήμα 4 — μια
+    // λανθασμένη αντιστοίχιση φαίνεται σωστή και δεν ξανακοιτάζεται ποτέ.
+    if (hits.length === 1) {
+      return { candidateId: hits[0].id, method: "NAME", score: 0.8, side: hits[0].side };
+    }
   }
 
   return null;

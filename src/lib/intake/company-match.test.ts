@@ -143,4 +143,35 @@ describe("matchParty", () => {
     const noVat: MatchCandidate = { id: "x", name: "Χ", legalName: null, vatNumber: null, side: "EXTERNAL" };
     expect(matchParty({ name: "άσχετο", vat: "111111111" }, [noVat])).toBeNull();
   });
+
+  it("ΔΕΝ μαντεύει όταν δύο εταιρίες έχουν το ίδιο κανονικοποιημένο όνομα", () => {
+    const alfa1: MatchCandidate = {
+      id: "a1", name: "ΑΛΦΑ", legalName: "ΑΛΦΑ Α.Ε.", vatNumber: "094014201", side: "EXTERNAL",
+    };
+    const alfa2: MatchCandidate = {
+      id: "a2", name: "ΑΛΦΑ ΕΠΕ", legalName: null, vatNumber: "094059163", side: "EXTERNAL",
+    };
+    expect(matchParty({ name: "ΑΛΦΑ", vat: null }, [alfa1, alfa2])).toBeNull();
+    // Και με αντίστροφη σειρά — το αποτέλεσμα δεν εξαρτάται από τον πίνακα.
+    expect(matchParty({ name: "ΑΛΦΑ", vat: null }, [alfa2, alfa1])).toBeNull();
+  });
+
+  it("ταιριάζει κανονικά όταν μόνο μία εταιρία έχει το όνομα", () => {
+    const m = matchParty({ name: "ΑΛΦΑ", vat: null }, [
+      { id: "a1", name: "ΑΛΦΑ", legalName: null, vatNumber: null, side: "EXTERNAL" },
+      { id: "b1", name: "ΒΗΤΑ", legalName: null, vatNumber: null, side: "EXTERNAL" },
+    ]);
+    expect(m).toMatchObject({ candidateId: "a1", method: "NAME" });
+  });
+
+  it("ασάφεια ΑΦΜ: προτιμά τη δική μας εταιρία, ανεξάρτητα από τη σειρά", () => {
+    const asOrg: MatchCandidate = {
+      id: "org", name: "DGSOFT", legalName: null, vatNumber: "997939640", side: "OWN_MOTHER",
+    };
+    const asCompany: MatchCandidate = {
+      id: "dup", name: "DGSOFT", legalName: null, vatNumber: "997939640", side: "EXTERNAL",
+    };
+    expect(matchParty({ name: "-", vat: "997939640" }, [asCompany, asOrg])?.candidateId).toBe("org");
+    expect(matchParty({ name: "-", vat: "997939640" }, [asOrg, asCompany])?.candidateId).toBe("org");
+  });
 });
