@@ -402,9 +402,14 @@ const LOOKALIKES: Record<string, string> = {
 export function normalizeVat(raw: string | null | undefined): string | null {
   if (!raw) return null;
 
-  const swapped = [...raw.trim()].map((ch) => LOOKALIKES[ch] ?? ch).join("");
-  // Πετάμε προθέματα χώρας και ό,τι δεν είναι ψηφίο.
-  const digits = swapped.replace(/^\s*(EL|GR)\s*/i, "").replace(/\D/g, "");
+  // Η ΣΕΙΡΑ ΕΧΕΙ ΣΗΜΑΣΙΑ: το πρόθεμα χώρας φεύγει ΠΡΙΝ την αντικατάσταση
+  // ομόγραφων. Αλλιώς το πεζό «l» του «el» γίνεται «1» και το ΑΦΜ βγαίνει
+  // 10ψήφιο, άρα απορρίπτεται.
+  const stripped = raw.trim().replace(/^(EL|GR)\s*/i, "");
+  const digits = [...stripped]
+    .map((ch) => LOOKALIKES[ch] ?? ch)
+    .join("")
+    .replace(/\D/g, "");
 
   if (digits.length === 8) return `0${digits}`;
   if (digits.length === 9) return digits;
@@ -577,6 +582,23 @@ describe("matchParty", () => {
     expect(matchParty({ name: "Άλλο", vat: "123456789" }, ALL)).toBeNull();
   });
 
+  it("ΔΕΝ ταιριάζει με ΑΦΜ που κόβεται στο ψηφίο ελέγχου", () => {
+    // Ίδια ψηφία και στις δύο πλευρές, αλλά άκυρο ΑΦΜ: αν το δεχόμασταν, ένα
+    // σφάλμα OCR θα έδενε τη σύμβαση σε λάθος εταιρία.
+    const bad: MatchCandidate = {
+      id: "bad", name: "Χ", legalName: null, vatNumber: "997939641", side: "EXTERNAL",
+    };
+    expect(matchParty({ name: "άσχετο όνομα", vat: "997939641" }, [bad])).toBeNull();
+  });
+
+  it("πέφτει πίσω στο όνομα όταν το ΑΦΜ είναι άκυρο", () => {
+    const c: MatchCandidate = {
+      id: "c9", name: "ΚΟΣΜΟΚΑΡ", legalName: null, vatNumber: "997939641", side: "EXTERNAL",
+    };
+    const m = matchParty({ name: "ΚΟΣΜΟΚΑΡ Α.Ε.", vat: "997939641" }, [c]);
+    expect(m).toMatchObject({ candidateId: "c9", method: "NAME" });
+  });
+
   it("δεν ταιριάζει σε κενή λίστα υποψηφίων", () => {
     expect(matchParty({ name: "DGSOFT", vat: "997939640" }, [])).toBeNull();
   });
@@ -597,7 +619,7 @@ Expected: FAIL — `Failed to resolve import "./company-match"`
 
 ```ts
 // src/lib/intake/company-match.ts
-import { normalizeVat } from "./vat";
+import { normalizeVat, isValidGreekVat } from "./vat";
 
 export type PartySideValue = "OWN_MOTHER" | "OWN_GROUP" | "EXTERNAL";
 export type MatchMethodValue = "VAT" | "NAME" | "MANUAL" | "NONE";
@@ -699,8 +721,14 @@ export function matchParty(
   party: ExtractedParty,
   candidates: MatchCandidate[]
 ): PartyMatch | null {
+  // Το ψηφίο ελέγχου ΠΡΕΠΕΙ να επαληθευτεί πριν δεχθούμε ταίριασμα με ΑΦΜ.
+  // Το `normalizeVat` καθαρίζει μορφή, δεν κρίνει αν ο αριθμός είναι ΑΦΜ:
+  // μια ημερομηνία ή ένας αριθμός παραστατικού έχουν κι αυτά ψηφία και
+  // διαχωριστικά. Ο έλεγχος κόβει περίπου το 90% των τυχαίων ψηφίων. Δεν
+  // είναι τέλειος — περίπου 1 στα 10 περνά τυχαία — γι' αυτό η τελική άμυνα
+  // παραμένει η ανθρώπινη επιβεβαίωση στο βήμα 4 του wizard.
   const vat = normalizeVat(party.vat);
-  if (vat) {
+  if (vat && isValidGreekVat(vat)) {
     const hit = candidates.find((c) => normalizeVat(c.vatNumber) === vat);
     if (hit) return { candidateId: hit.id, method: "VAT", score: 1, side: hit.side };
   }
