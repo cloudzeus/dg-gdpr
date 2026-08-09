@@ -854,6 +854,12 @@ describe("scoreOcrText", () => {
     expect(scoreOcrText(withTerms, 1)).toBeGreaterThan(scoreOcrText(withoutTerms, 1));
   });
 
+  it("η καθαρότητα είναι πολλαπλασιαστής, όχι ένα σήμα ανάμεσα σε άλλα", () => {
+    // Ίδιο κείμενο, ίδιοι όροι, ίδια ελληνικότητα — μόνο τα σκουπίδια αλλάζουν.
+    // Με προσθετικά βάρη αυτό έπαιρνε 0.79 και περνούσε την πύλη.
+    expect(scoreOcrText("�".repeat(200) + GOOD, 1)).toBe(0);
+  });
+
   it("το score μένει πάντα στο [0,1]", () => {
     for (const [text, pages] of [[GOOD, 1], ["", 1], ["�", 5], [GOOD.repeat(50), 1]] as const) {
       const s = scoreOcrText(text as string, pages as number);
@@ -922,11 +928,15 @@ function clamp01(n: number): number {
 }
 
 /**
- * Score 0–1. Τέσσερα σήματα, σταθμισμένα:
- *  - πυκνότητα κειμένου ανά σελίδα (0.30)
- *  - αναλογία ελληνικών προς λατινικά γράμματα (0.30)
- *  - απουσία replacement characters (0.20)
- *  - παρουσία συμβατικών όρων (0.20)
+ * Score 0–1 από τρία σταθμισμένα σήματα, ΠΟΛΛΑΠΛΑΣΙΑΣΜΕΝΑ με την καθαρότητα:
+ *
+ *   (πυκνότητα·0.375 + ελληνικότητα·0.375 + συμβατικοί όροι·0.25) × καθαρότητα
+ *
+ * Η καθαρότητα είναι πολλαπλασιαστής και όχι τέταρτο σήμα, επειδή τα
+ * replacement characters δεν είναι μία γνώμη ανάμεσα σε άλλες — διαφθείρουν
+ * ολόκληρη την ανάγνωση. Μια σελίδα κατά 35% σκουπίδι είναι άχρηστη όσοι
+ * συμβατικοί όροι κι αν επέζησαν. Με προσθετικά βάρη έπαιρνε 0.79 και
+ * περνούσε την πύλη· τώρα μηδενίζεται.
  */
 export function scoreOcrText(text: string, pageCount: number | null | undefined): number {
   const body = (text ?? "").trim();
@@ -954,7 +964,7 @@ export function scoreOcrText(text: string, pageCount: number | null | undefined)
   const termScore = clamp01(found / 4);
 
   return clamp01(
-    density * 0.3 + greekRatio * 0.3 + cleanliness * 0.2 + termScore * 0.2
+    (density * 0.375 + greekRatio * 0.375 + termScore * 0.25) * cleanliness
   );
 }
 
