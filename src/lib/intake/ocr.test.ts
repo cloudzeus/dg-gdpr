@@ -107,7 +107,9 @@ describe("readDocument", () => {
     expect(generate).not.toHaveBeenCalled();
     expect(r.model).toBe("docx");
     expect(r.text).toBe(GOOD_TEXT);
-    expect(r.quality).toBeGreaterThan(0.5);
+    // Δεν υπήρξε ανάγνωση OCR να αποτύχει — το DOCX δεν βαθμολογείται πια
+    // από την πύλη ποιότητας, βαθμολογείται ως τέλειο.
+    expect(r.quality).toBe(1);
   });
 
   it("υπολογίζει σελίδες PDF από το /Count του page tree", () => {

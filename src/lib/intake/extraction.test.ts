@@ -13,7 +13,7 @@ const VALID = JSON.stringify({
 });
 
 const docs = [
-  { text: "ΣΥΜΒΑΣΗ...", buffer: Buffer.from("f"), mimeType: "application/pdf" },
+  { text: "ΣΥΜΒΑΣΗ...", buffer: Buffer.from("f"), mimeType: "application/pdf", kind: "CONTRACT" as const },
 ];
 
 describe("extractContract", () => {
@@ -56,8 +56,9 @@ describe("extractContract", () => {
   });
 
   it("ξαναπροσπαθεί μία φορά όταν η απάντηση δεν περνά το schema", async () => {
+    // Ένα μέρος χωρίς όνομα είναι άκυρο — parties:[] πλέον είναι έγκυρο.
     const generate = vi.fn()
-      .mockResolvedValueOnce('{"parties":[]}')
+      .mockResolvedValueOnce('{"parties":[{"name":""}]}')
       .mockResolvedValueOnce(VALID);
     const r = await extractContract(docs, { generate });
 
@@ -68,7 +69,7 @@ describe("extractContract", () => {
   });
 
   it("πετά όταν αποτύχει και η δεύτερη προσπάθεια", async () => {
-    const generate = vi.fn().mockResolvedValue('{"parties":[]}');
+    const generate = vi.fn().mockResolvedValue('{"parties":[{"name":""}]}');
     await expect(extractContract(docs, { generate })).rejects.toThrow(/εξαγωγ/i);
     expect(generate).toHaveBeenCalledTimes(2);
   });
@@ -80,6 +81,7 @@ describe("extractContract", () => {
         text: "ΣΥΜΒΑΣΗ από Word",
         buffer: Buffer.from("docx-bytes"),
         mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        kind: "CONTRACT",
       }],
       { generate }
     );
@@ -91,7 +93,12 @@ describe("extractContract", () => {
 
   it("παραλείπει συνημμένα πέρα από το όριο μεγέθους, κρατά το κείμενο", async () => {
     const generate = vi.fn().mockResolvedValue(VALID);
-    const huge = { text: "τεράστιο", buffer: Buffer.alloc(16 * 1024 * 1024), mimeType: "application/pdf" };
+    const huge = {
+      text: "τεράστιο",
+      buffer: Buffer.alloc(16 * 1024 * 1024),
+      mimeType: "application/pdf",
+      kind: "CONTRACT" as const,
+    };
     await extractContract([huge], { generate });
 
     const parts = generate.mock.calls[0][0].parts;
@@ -103,5 +110,25 @@ describe("extractContract", () => {
     const generate = vi.fn();
     await expect(extractContract([], { generate })).rejects.toThrow(/έγγραφ/i);
     expect(generate).not.toHaveBeenCalled();
+  });
+
+  it("το prompt ζητά μέρη όταν το υλικό περιλαμβάνει σύμβαση", async () => {
+    const generate = vi.fn().mockResolvedValue(VALID);
+    await extractContract(docs, { generate });
+
+    const system = generate.mock.calls[0][0].system;
+    expect(system).toContain("parties");
+    expect(system).toMatch(/ΜΟΝΟ τα συμβαλλόμενα μέρη/);
+  });
+
+  it("το prompt απαγορεύει ρητά τα μέρη όταν δεν υπάρχει σύμβαση", async () => {
+    const generate = vi.fn().mockResolvedValue(VALID);
+    const offer = [
+      { text: "ΠΡΟΣΦΟΡΑ...", buffer: Buffer.from("f"), mimeType: "application/pdf", kind: "OFFER" as const },
+    ];
+    await extractContract(offer, { generate });
+
+    const system = generate.mock.calls[0][0].system;
+    expect(system).toContain("ΑΦΗΣΕ ΤΟ «parties» ΚΕΝΟ");
   });
 });

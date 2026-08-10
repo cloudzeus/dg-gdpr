@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireUserId } from "@/lib/current-user";
 import { extractContract } from "@/lib/intake/extraction";
 import { reasonAboutRoles } from "@/lib/intake/reasoning";
-import { persistExtraction, persistReasoning } from "@/actions/intake";
+import { persistExtraction, persistReasoning, buildConfirmedParties } from "@/actions/intake";
 import type { ComplianceProfile } from "@/lib/intake/compliance-profile";
 import { buildComplianceProfile } from "@/lib/intake/compliance-profile";
 
@@ -45,6 +45,7 @@ export async function POST(req: NextRequest) {
           text: d.ocrText!,
           buffer: Buffer.from(await res.arrayBuffer()),
           mimeType: d.mimeType,
+          kind: d.kind,
         };
       })
     );
@@ -61,7 +62,11 @@ export async function POST(req: NextRequest) {
     const profile =
       (intake.profileSnapshot as ComplianceProfile | null) ?? (await buildComplianceProfile());
 
-    const reasoning = await reasonAboutRoles(extraction, profile);
+    // Δεν υπάρχει ακόμα η οθόνη επιβεβαίωσης μερών του βήματος 4 — ο κλειστός
+    // κατάλογος χτίζεται από ό,τι ταίριαξε στην εξαγωγή, με τη μαμά του ομίλου
+    // και το recipientHint ως τεκμηριωμένα καλύμματα κενού. Βλ. reasoning.ts.
+    const parties = await buildConfirmedParties(intakeId, extraction);
+    const reasoning = await reasonAboutRoles(extraction, profile, parties);
     await persistReasoning(intakeId, reasoning);
 
     return NextResponse.json({

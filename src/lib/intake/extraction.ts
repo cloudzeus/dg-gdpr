@@ -9,28 +9,61 @@ import { ExtractionSchema, parseAiJson, type Extraction } from "./schemas";
  * κρύβεται συχνά το ποιος πραγματικά υπογράφει.
  */
 
-const SYSTEM = `Είσαι αναλυτής ελληνικών εμπορικών συμβάσεων.
-Εξάγεις γεγονότα από το έγγραφο. ΔΕΝ ερμηνεύεις νομικά, ΔΕΝ αποφασίζεις ρόλους GDPR.
+const BASE_SYSTEM = `Είσαι αναλυτής ελληνικών εμπορικών εγγράφων.
+Εξάγεις ΓΕΓΟΝΟΤΑ. ΔΕΝ ερμηνεύεις νομικά, ΔΕΝ αποφασίζεις ρόλους GDPR.
 Αν κάτι δεν αναφέρεται στο έγγραφο, βάλε null ή κενό πίνακα — ΜΗΝ το εφευρίσκεις.
-Επιστρέφεις ΜΟΝΟ JSON με αυτή τη δομή:
+
+Στο «vendors» βάλε ΚΑΘΕ εμπορικό όνομα προϊόντος, μάρκας ή παρόχου που
+αναφέρεται. Για καθένα απάντησε ΞΕΧΩΡΙΣΤΑ αν επεξεργάζεται δεδομένα
+προσωπικού χαρακτήρα για λογαριασμό κάποιου:
+  "PROCESSES_DATA" — cloud, φιλοξενία, SaaS, υπηρεσία που κρατά ή βλέπει δεδομένα
+  "SUPPLIES_ONLY"  — εξοπλισμός, υλικό, άδεια λογισμικού on-premise. Δεν αγγίζει δεδομένα.
+  "UNCLEAR"        — δεν προκύπτει από το έγγραφο
+Στο «evidence» γράψε τη φράση του εγγράφου που στηρίζει την κατάταξη.
+Ένας κατασκευαστής δρομολογητών ή τηλεφωνικών συσκευών που απλώς πουλάει
+υλικό είναι SUPPLIES_ONLY, όχι PROCESSES_DATA.`;
+
+const CONTRACT_BLOCK = `
+Το υλικό περιλαμβάνει ΣΥΜΒΑΣΗ. Στο «parties» βάλε ΜΟΝΟ τα συμβαλλόμενα μέρη —
+αυτούς που υπογράφουν ή δεσμεύονται νομικά. ΟΧΙ προϊόντα, ΟΧΙ μάρκες, ΟΧΙ
+προμηθευτές που απλώς αναφέρονται: αυτά ανήκουν στο «vendors».`;
+
+const NO_CONTRACT_BLOCK = `
+Το υλικό ΔΕΝ περιλαμβάνει σύμβαση — είναι προσφορά ή τεχνική περιγραφή.
+ΑΦΗΣΕ ΤΟ «parties» ΚΕΝΟ: μια προσφορά δεν θεμελιώνει συμβαλλόμενους.
+Στο «recipientHint» βάλε ΜΟΝΟ την επωνυμία του παραλήπτη, αν κατονομάζεται
+ρητά (π.χ. «Προς:», «Αποδέκτες:», «Πρόταση για τη ...»).
+Δώσε βάρος στο «subject», στο «dataCategories» και στο «vendors».`;
+
+const JSON_SHAPE = `Επιστρέφεις ΜΟΝΟ JSON με αυτή τη δομή:
 {
   "parties": [{ "name": "...", "vat": "...", "address": "...", "representative": "...", "email": "..." }],
   "subject": "...",
   "signedAt": "YYYY-MM-DD",
   "term": "...",
   "dataCategories": ["..."],
-  "subProcessors": ["..."],
+  "vendors": [{ "name": "...", "triage": "PROCESSES_DATA|SUPPLIES_ONLY|UNCLEAR", "evidence": "..." }],
+  "recipientHint": "...",
   "crossBorderTransfer": false,
   "specialCategories": false,
   "signatories": ["..."]
 }
-Στα "parties" βάλε ΚΑΘΕ νομικό πρόσωπο που αναφέρεται ως μέρος, υπεργολάβος ή αποδέκτης.
 Το "specialCategories" είναι true μόνο αν το έγγραφο αναφέρει δεδομένα άρθρου 9 GDPR.`;
+
+export type DocumentKind = "CONTRACT" | "OFFER" | "ANNEX" | "CORRESPONDENCE" | "OTHER";
 
 export interface ExtractionSource {
   text: string;
   buffer: Buffer;
   mimeType: string;
+  kind: DocumentKind;
+}
+
+function buildSystemPrompt(sources: ExtractionSource[]): string {
+  const kindBlock = sources.some((s) => s.kind === "CONTRACT")
+    ? CONTRACT_BLOCK
+    : NO_CONTRACT_BLOCK;
+  return `${BASE_SYSTEM}\n${kindBlock}\n\n${JSON_SHAPE}`;
 }
 
 const DOCX_MIME =
@@ -52,12 +85,13 @@ export async function extractContract(
   }
 
   const generate = deps.generate ?? geminiGenerate;
+  const system = buildSystemPrompt(sources);
 
   const parts: GeminiPart[] = [];
   let inlineBudget = MAX_INLINE_BYTES;
 
   sources.forEach((s, i) => {
-    parts.push({ text: `--- Έγγραφο ${i + 1} (κείμενο OCR) ---\n${s.text}` });
+    parts.push({ text: `--- Έγγραφο ${i + 1} (${s.kind}, κείμενο OCR) ---\n${s.text}` });
 
     // Το DOCX έχει ήδη εξαχθεί σε κείμενο· τα bytes του δεν λένε τίποτα σε
     // μοντέλο όρασης. Και πέρα από το όριο, το κείμενο μόνο του είναι
@@ -72,7 +106,7 @@ export async function extractContract(
   const attempt = async (temperature: number, extraSystem = "") => {
     const raw = await generate({
       model: proModel(),
-      system: SYSTEM + extraSystem,
+      system: system + extraSystem,
       parts,
       json: true,
       temperature,
@@ -89,7 +123,7 @@ export async function extractContract(
       return await attempt(
         0,
         "\nΠΡΟΣΟΧΗ: η προηγούμενη απάντηση ήταν άκυρη. Επίστρεψε ΜΟΝΟ έγκυρο JSON " +
-          "με τουλάχιστον ένα στοιχείο στο parties, το καθένα με μη κενό name."
+          "σύμφωνα ακριβώς με τη δομή, χωρίς επιπλέον κείμενο ή σχόλια."
       );
     } catch (e) {
       throw new Error(

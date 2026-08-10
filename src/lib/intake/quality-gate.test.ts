@@ -62,6 +62,28 @@ describe("scoreOcrText", () => {
   });
 });
 
+const OFFER_TEXT = `
+ΠΡΟΤΑΣΗ ΠΡΟΣΦΟΡΑΣ ΓΙΑ ΤΗΝ ΕΓΚΑΤΑΣΤΑΣΗ ΕΞΟΠΛΙΣΜΟΥ ΔΙΚΤΥΩΣΗΣ
+
+Σας παρουσιάζουμε τη ΛΥΣΗ μας για τις ΥΠΗΡΕΣΙΕΣ φιλοξενίας δικτύου.
+Το συνολικό ΚΟΣΤΟΣ του έργου αναλύεται παρακάτω ανά είδος εξοπλισμού.
+Η ΕΤΑΙΡΙΑ μας διαθέτει εμπειρία σε αντίστοιχα έργα δικτύωσης.
+`;
+
+describe("scoreOcrText — λεξιλόγιο ανά είδος εγγράφου", () => {
+  it("κείμενο προσφοράς βαθμολογείται υψηλότερα ως OFFER παρά ως CONTRACT", () => {
+    const asOffer = scoreOcrText(OFFER_TEXT, 1, "OFFER");
+    const asContract = scoreOcrText(OFFER_TEXT, 1, "CONTRACT");
+    expect(asOffer).toBeGreaterThan(asContract);
+  });
+
+  it("η συμπεριφορά για σύμβαση μένει ίδια με το προεπιλεγμένο κατώφλι", () => {
+    // Χωρίς τρίτο όρισμα, η βαθμολόγηση σύμβασης παραμένει όπως πριν.
+    expect(scoreOcrText(GOOD, 1)).toBe(scoreOcrText(GOOD, 1, "CONTRACT"));
+    expect(scoreOcrText(GOOD, 1)).toBeGreaterThanOrEqual(0.9);
+  });
+});
+
 describe("needsEscalation", () => {
   it("κάτω από το κατώφλι κλιμακώνει", () => {
     expect(needsEscalation(0.5, 0.7)).toBe(true);

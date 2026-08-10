@@ -32,6 +32,8 @@ export const RemedyTypeEnum = z.enum([
   "CREATE_ROPA_ENTRY", "CREATE_ASSESSMENT", "ASSIGN_DPO", "CREATE_TRAINING",
 ]);
 
+export const VendorTriageEnum = z.enum(["PROCESSES_DATA", "SUPPLIES_ONLY", "UNCLEAR"]);
+
 export const ExtractedPartySchema = z.object({
   name: nonEmpty,
   vat: optionalText,
@@ -40,13 +42,22 @@ export const ExtractedPartySchema = z.object({
   email: optionalText,
 });
 
+export const VendorSchema = z.object({
+  name: nonEmpty,
+  triage: VendorTriageEnum,
+  /** Η φράση του εγγράφου που στηρίζει την κατάταξη. */
+  evidence: optionalText,
+});
+
 export const ExtractionSchema = z.object({
-  parties: z.array(ExtractedPartySchema).min(1),
+  parties: z.array(ExtractedPartySchema).default([]),
   subject: optionalText,
   signedAt: optionalText,
   term: optionalText,
   dataCategories: z.array(z.string()).default([]),
-  subProcessors: z.array(z.string()).default([]),
+  vendors: z.array(VendorSchema).default([]),
+  /** Ο κατονομαζόμενος αποδέκτης μιας προσφοράς — ένδειξη αντισυμβαλλομένου, όχι μέρος. */
+  recipientHint: optionalText,
   crossBorderTransfer: z.boolean().default(false),
   specialCategories: z.boolean().default(false),
   signatories: z.array(z.string()).default([]),

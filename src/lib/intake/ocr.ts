@@ -44,6 +44,8 @@ export interface SourceDocument {
   buffer: Buffer;
   mimeType: string;
   pageCount: number | null;
+  /** Είδος εγγράφου — αλλάζει το λεξιλόγιο που ψάχνει η πύλη ποιότητας. */
+  kind?: "CONTRACT" | "OFFER" | "ANNEX" | "CORRESPONDENCE" | "OTHER";
 }
 
 export interface ReadResult {
@@ -83,12 +85,16 @@ export async function readDocument(
     Number(process.env.INTAKE_OCR_QUALITY_THRESHOLD ?? DEFAULT_QUALITY_THRESHOLD);
 
   // Το DOCX έχει ήδη κείμενο — το OCR θα ήταν σπατάλη και χειρότερο αποτέλεσμα.
+  // Δεν υπήρξε ανάγνωση εδώ, άρα δεν υπάρχει ανάγνωση να αποτύχει: η πύλη
+  // ποιότητας βαθμολογεί ΑΝΑΓΝΩΣΙΜΟΤΗΤΑ OCR, όχι πληρότητα περιεχομένου, και
+  // η εφαρμογή της σε mammoth-εξαγμένο κείμενο έριχνε τέλεια DOCX κάτω από
+  // το κατώφλι κλιμάκωσης επειδή τους έλειπε το λεξιλόγιο σύμβασης.
   if (doc.mimeType === DOCX_MIME) {
     const text = await extractDocx(doc.buffer);
     return {
       text,
       model: "docx",
-      quality: scoreOcrText(text, doc.pageCount),
+      quality: 1,
       escalated: false,
     };
   }
@@ -99,7 +105,7 @@ export async function readDocument(
   ];
 
   const first = await generate({ model: liteModel(), system: OCR_SYSTEM, parts });
-  const firstQuality = scoreOcrText(first, doc.pageCount);
+  const firstQuality = scoreOcrText(first, doc.pageCount, doc.kind);
 
   if (!needsEscalation(firstQuality, threshold)) {
     return { text: first, model: liteModel(), quality: firstQuality, escalated: false };
@@ -111,7 +117,7 @@ export async function readDocument(
   }
 
   const second = await generate({ model: proModel(), system: OCR_SYSTEM, parts });
-  const secondQuality = scoreOcrText(second, doc.pageCount);
+  const secondQuality = scoreOcrText(second, doc.pageCount, doc.kind);
 
   // Η κλιμάκωση δεν εγγυάται βελτίωση — κρατάμε την καλύτερη ανάγνωση.
   return secondQuality >= firstQuality

@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
     const pageCount = doc.pageCount ?? estimatePageCount(buffer, doc.mimeType);
 
     const result = await readDocument(
-      { buffer, mimeType: doc.mimeType, pageCount },
+      { buffer, mimeType: doc.mimeType, pageCount, kind: doc.kind },
       { reserveEscalation: () => reserveEscalationSlot(doc.intakeId, doc.id) }
     );
 

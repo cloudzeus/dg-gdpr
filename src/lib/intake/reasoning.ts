@@ -22,17 +22,36 @@ const SYSTEM = `Είσαι νομικός σύμβουλος GDPR για ελλ�
 }
 
 Κανόνες:
-- Δώσε ρόλο για ΚΑΘΕ μέρος που σου δόθηκε, με το ίδιο ακριβώς "name".
+- Δώσε ρόλο σε ΚΑΘΕ μέρος του καταλόγου, με το ίδιο ακριβώς "name", και σε κανέναν άλλον.
+- Οι προμηθευτές ΔΕΝ είναι μέρη. Όσοι επεξεργάζονται δεδομένα είναι υποψήφιοι
+  υποεκτελούντες και δικαιολογούν κενό· όσοι απλώς προμηθεύουν εξοπλισμό ΔΕΝ
+  δικαιολογούν ούτε κενό ούτε σύμβαση επεξεργασίας.
 - Τα κενά αφορούν ΤΗ ΔΙΚΗ ΜΑΣ πλευρά, με βάση το προφίλ συμμόρφωσης — όχι γενικές συμβουλές.
 - CRITICAL μόνο όταν η έλλειψη συνιστά παράβαση, π.χ. απουσία DPA όπου απαιτείται άρθρο 28,
   ή απουσία DPIA όπου απαιτείται άρθρο 35.
 - Μην προτείνεις κενό που ήδη καλύπτεται από το προφίλ.`;
 
+export interface ConfirmedParty {
+  name: string;
+  vat: string | null;
+  side: "OWN_MOTHER" | "OWN_GROUP" | "EXTERNAL";
+}
+
 export interface ReasoningDeps {
   chat?: (p: { system: string; user: string; temperature?: number; maxTokens?: number }) => Promise<string>;
 }
 
-function buildUserPrompt(extraction: Extraction, profile: ComplianceProfile): string {
+const SIDE_LABEL: Record<ConfirmedParty["side"], string> = {
+  OWN_MOTHER: "δική μας εταιρία",
+  OWN_GROUP: "δική μας εταιρία",
+  EXTERNAL: "αντισυμβαλλόμενος",
+};
+
+function buildUserPrompt(
+  extraction: Extraction,
+  profile: ComplianceProfile,
+  parties: ConfirmedParty[]
+): string {
   return `ΤΑ ΔΙΚΑ ΜΑΣ ΣΤΟΙΧΕΙΑ (όμιλος)
 Μαμά: ${profile.mother.name} — ΑΦΜ ${profile.mother.vatNumber ?? "—"} — domains: ${profile.mother.domains.join(", ") || "—"}
 Θυγατρικές: ${profile.subsidiaries.map((s) => `${s.name} (${s.vatNumber ?? "—"})`).join("; ") || "καμία"}
@@ -53,21 +72,36 @@ RoPA ανά τμήμα: ${profile.ropaDepartments.join(", ") || "καμία κα
 Διάρκεια: ${extraction.term ?? "—"}
 Ημερομηνία: ${extraction.signedAt ?? "—"}
 Κατηγορίες δεδομένων: ${extraction.dataCategories.join(", ") || "δεν αναφέρονται"}
-Υπεργολάβοι στη σύμβαση: ${extraction.subProcessors.join(", ") || "κανένας"}
 Διασυνοριακή μεταφορά: ${extraction.crossBorderTransfer ? "ναι" : "όχι"}
 Ειδικές κατηγορίες (άρθρο 9): ${extraction.specialCategories ? "ναι" : "όχι"}
 
-ΤΑ ΜΕΡΗ
-${extraction.parties.map((p, i) => `${i + 1}. ${p.name} — ΑΦΜ ${p.vat ?? "—"} — εκπρόσωπος ${p.representative ?? "—"}`).join("\n")}`;
+ΠΡΟΜΗΘΕΥΤΕΣ ΠΟΥ ΕΠΕΞΕΡΓΑΖΟΝΤΑΙ ΔΕΔΟΜΕΝΑ (υποψήφιοι υποεκτελούντες)
+${extraction.vendors.filter((v) => v.triage === "PROCESSES_DATA").map((v) => `- ${v.name}${v.evidence ? ` — ${v.evidence}` : ""}`).join("\n") || "κανένας"}
+
+ΠΡΟΜΗΘΕΥΤΕΣ ΠΟΥ ΑΠΛΩΣ ΠΡΟΜΗΘΕΥΟΥΝ ΕΞΟΠΛΙΣΜΟ/ΑΔΕΙΕΣ (δεν δικαιολογούν κενό)
+${extraction.vendors.filter((v) => v.triage === "SUPPLIES_ONLY").map((v) => `- ${v.name}${v.evidence ? ` — ${v.evidence}` : ""}`).join("\n") || "κανένας"}
+
+ΠΡΟΜΗΘΕΥΤΕΣ ΑΣΑΦΟΥΣ ΤΡΙΑΓΕ
+${extraction.vendors.filter((v) => v.triage === "UNCLEAR").map((v) => `- ${v.name}`).join("\n") || "κανένας"}
+
+ΤΑ ΜΕΡΗ (δεδομένα — μην προσθέσεις άλλα, μην παραλείψεις κανένα)
+${parties.map((p, i) => `${i + 1}. ${p.name} — ΑΦΜ ${p.vat ?? "—"} — ${SIDE_LABEL[p.side]}`).join("\n")}`;
 }
 
 export async function reasonAboutRoles(
   extraction: Extraction,
   profile: ComplianceProfile,
+  parties: ConfirmedParty[],
   deps: ReasoningDeps = {}
 ): Promise<Reasoning> {
+  if (parties.length === 0) {
+    throw new Error(
+      "Δεν δόθηκαν μέρη — πρέπει να επιβεβαιωθεί ποιοι είναι οι συμβαλλόμενοι πριν ζητηθεί νομική κρίση"
+    );
+  }
+
   const chat = deps.chat ?? deepseekChat;
-  const user = buildUserPrompt(extraction, profile);
+  const user = buildUserPrompt(extraction, profile, parties);
 
   const attempt = async (temperature: number, extra = "") =>
     ReasoningSchema.parse(

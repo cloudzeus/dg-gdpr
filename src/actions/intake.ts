@@ -8,9 +8,10 @@ import { uploadToBunny } from "@/lib/bunny";
 import { revalidatePath } from "next/cache";
 import { createHash } from "crypto";
 import { buildComplianceProfile, getOwnGroupCandidates } from "@/lib/intake/compliance-profile";
-import { matchParty } from "@/lib/intake/company-match";
+import { matchParty, normalizeCompanyName } from "@/lib/intake/company-match";
 import { canCommit, type GapState, type PartyState } from "@/lib/intake/blocking-rule";
 import { toDpaRole, type PartyRoleValue } from "@/lib/intake/role-mapping";
+import type { ConfirmedParty } from "@/lib/intake/reasoning";
 import type { Extraction, Reasoning } from "@/lib/intake/schemas";
 
 const ALLOWED_MIME = [
@@ -138,6 +139,39 @@ export async function persistExtraction(intakeId: string, extraction: Extraction
   revalidatePath(`/intake/${intakeId}`);
 }
 
+/**
+ * Χτίζει τον κλειστό κατάλογο μερών που δέχεται το `reasonAboutRoles` ως
+ * δεδομένο, όσο δεν υπάρχει ακόμα η οθόνη επιβεβαίωσης του βήματος 4:
+ * τα ήδη αντιστοιχισμένα `IntakeParty` (από σύμβαση), και μόνο όταν λείπει
+ * η μία πλευρά — η μαμά του ομίλου ως δική μας, ή το `recipientHint` της
+ * εξαγωγής ως ο αντισυμβαλλόμενος. Ποτέ δεν εφευρίσκει μέρος που δεν
+ * στηρίζεται σε κάποιο από αυτά τα δύο τεκμήρια.
+ */
+export async function buildConfirmedParties(
+  intakeId: string,
+  extraction: Extraction
+): Promise<ConfirmedParty[]> {
+  const persisted = await prisma.intakeParty.findMany({ where: { intakeId } });
+  const parties: ConfirmedParty[] = persisted.map((p) => ({
+    name: p.extractedName,
+    vat: p.extractedVat,
+    side: p.side as ConfirmedParty["side"],
+  }));
+
+  if (!parties.some((p) => p.side !== "EXTERNAL")) {
+    const profile = await buildComplianceProfile();
+    if (profile.mother.name && profile.mother.name !== "—") {
+      parties.push({ name: profile.mother.name, vat: profile.mother.vatNumber, side: "OWN_MOTHER" });
+    }
+  }
+
+  if (!parties.some((p) => p.side === "EXTERNAL") && extraction.recipientHint) {
+    parties.push({ name: extraction.recipientHint, vat: null, side: "EXTERNAL" });
+  }
+
+  return parties;
+}
+
 /** Γράφει τους προτεινόμενους ρόλους και τα κενά. */
 export async function persistReasoning(intakeId: string, reasoning: Reasoning) {
   await requireUserId();
@@ -145,7 +179,11 @@ export async function persistReasoning(intakeId: string, reasoning: Reasoning) {
 
   await prisma.$transaction(async (tx) => {
     for (const pr of reasoning.partyRoles) {
-      const party = parties.find((p) => p.extractedName === pr.name);
+      const wanted = normalizeCompanyName(pr.name);
+      // Το ταίριασμα είναι κανονικοποιημένο, όχι ακριβής σύγκριση συμβολοσειράς:
+      // ένας ρόλος για «DGSOFT» δεν πρέπει να χάνεται επειδή το εξαχθέν μέρος
+      // λέγεται «DGSOFT Α.Ε.» ή «Δγσοφτ».
+      const party = parties.find((p) => normalizeCompanyName(p.extractedName) === wanted);
       if (!party) continue; // ό,τι δεν αντιστοιχεί σε μέρος αγνοείται σιωπηλά
       await tx.intakeParty.update({
         where: { id: party.id },

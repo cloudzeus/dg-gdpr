@@ -17,7 +17,8 @@ const validExtraction = {
   signedAt: "2026-03-12",
   term: "12 μήνες",
   dataCategories: ["Στοιχεία πελατών", "Στοιχεία παραγγελιών"],
-  subProcessors: ["Bunny CDN"],
+  vendors: [{ name: "Bunny CDN", triage: "PROCESSES_DATA", evidence: "φιλοξενία αρχείων" }],
+  recipientHint: null,
   crossBorderTransfer: false,
   specialCategories: false,
   signatories: ["Γ. Κοζύρης"],
@@ -31,14 +32,14 @@ describe("ExtractionSchema", () => {
   it("συμπληρώνει προεπιλογές για τα προαιρετικά", () => {
     const minimal = ExtractionSchema.parse({ parties: [{ name: "Α" }] });
     expect(minimal.dataCategories).toEqual([]);
-    expect(minimal.subProcessors).toEqual([]);
+    expect(minimal.vendors).toEqual([]);
     expect(minimal.crossBorderTransfer).toBe(false);
     expect(minimal.parties[0].vat).toBeNull();
   });
 
-  it("απορρίπτει απάντηση χωρίς μέρη", () => {
-    expect(() => ExtractionSchema.parse({ parties: [] })).toThrow();
-    expect(() => ExtractionSchema.parse({})).toThrow();
+  it("δέχεται κενά ή απόντα μέρη — μια προσφορά νόμιμα δεν έχει συμβαλλόμενους", () => {
+    expect(ExtractionSchema.parse({ parties: [] }).parties).toEqual([]);
+    expect(ExtractionSchema.parse({}).parties).toEqual([]);
   });
 
   it("απορρίπτει μέρος χωρίς όνομα", () => {
@@ -54,6 +55,29 @@ describe("ExtractionSchema", () => {
   it("απορρίπτει λάθος τύπο", () => {
     expect(() => ExtractionSchema.parse({ parties: "DGSOFT" })).toThrow();
     expect(() => ExtractionSchema.parse({ ...validExtraction, crossBorderTransfer: "ναι" })).toThrow();
+  });
+
+  it("δέχεται έγκυρη τιμή τριάγε προμηθευτή", () => {
+    const parsed = ExtractionSchema.parse({
+      ...validExtraction,
+      vendors: [{ name: "MikroTik", triage: "SUPPLIES_ONLY", evidence: "προμήθεια δρομολογητών" }],
+    });
+    expect(parsed.vendors).toEqual([
+      { name: "MikroTik", triage: "SUPPLIES_ONLY", evidence: "προμήθεια δρομολογητών" },
+    ]);
+  });
+
+  it("απορρίπτει άγνωστη τιμή τριάγε", () => {
+    expect(() =>
+      ExtractionSchema.parse({
+        ...validExtraction,
+        vendors: [{ name: "MikroTik", triage: "IS_A_PROCESSOR" }],
+      })
+    ).toThrow();
+  });
+
+  it("προεπιλέγει κενό πίνακα vendors όταν λείπει", () => {
+    expect(ExtractionSchema.parse({ parties: [] }).vendors).toEqual([]);
   });
 });
 
