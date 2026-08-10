@@ -1,0 +1,110 @@
+import { geminiGenerate, liteModel, proModel, type GeminiOptions } from "@/lib/gemini";
+import { scoreOcrText, needsEscalation, DEFAULT_QUALITY_THRESHOLD } from "./quality-gate";
+
+/**
+ * Στάδια ③④: μετατροπή ενός εγγράφου σε καθαρό κείμενο, με κλιμάκωση σε
+ * ισχυρότερο μοντέλο όταν η πρώτη ανάγνωση βγει κακή.
+ *
+ * Οι εξαρτήσεις περνούν ως παράμετροι ώστε οι δοκιμές να τρέχουν χωρίς δίκτυο.
+ */
+
+const DOCX_MIME =
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+const OCR_SYSTEM = `Είσαι μηχανή OCR για ελληνικά νομικά έγγραφα.
+Επίστρεψε ΜΟΝΟ το κείμενο του εγγράφου σε markdown, διατηρώντας επικεφαλίδες,
+παραγράφους και πίνακες. Μη σχολιάζεις, μη συνοψίζεις, μη μεταφράζεις.
+Διατήρησε ακριβώς αριθμούς, ΑΦΜ, ημερομηνίες και επωνυμίες.
+Αν μια λέξη είναι δυσανάγνωστη, γράψε την όπως τη βλέπεις χωρίς να μαντέψεις.`;
+
+/**
+ * Πόσες σελίδες έχει το αρχείο. Κρίσιμο για την πύλη ποιότητας: χωρίς αυτό,
+ * μια 40σέλιδη σύμβαση που διαβάστηκε ως 300 χαρακτήρες θα περνούσε ως καθαρή.
+ * `null` όταν δεν προκύπτει με βεβαιότητα — ο βαθμολογητής τότε υποθέτει μία.
+ */
+export function estimatePageCount(buffer: Buffer, mimeType: string): number | null {
+  if (mimeType.startsWith("image/")) return 1;
+  if (mimeType !== "application/pdf") return null;
+
+  const raw = buffer.toString("latin1");
+
+  // Το /Count του page tree είναι το αξιόπιστο σήμα όταν υπάρχει ακέραιο.
+  const counts = [...raw.matchAll(/\/Type\s*\/Pages[\s\S]{0,300}?\/Count\s+(\d+)/g)]
+    .map((m) => Number(m[1]))
+    .filter((n) => n > 0);
+  if (counts.length > 0) return Math.max(...counts);
+
+  // Αλλιώς μετράμε αντικείμενα σελίδας. Το αρνητικό lookahead αποκλείει το
+  // «/Type /Pages», που είναι ο κόμβος του δέντρου και όχι σελίδα.
+  const pages = (raw.match(/\/Type\s*\/Page(?![s])/g) ?? []).length;
+  return pages > 0 ? pages : null;
+}
+
+export interface SourceDocument {
+  buffer: Buffer;
+  mimeType: string;
+  pageCount: number | null;
+}
+
+export interface ReadResult {
+  text: string;
+  model: string;
+  quality: number;
+  escalated: boolean;
+}
+
+export interface ReadDeps {
+  generate?: (opts: GeminiOptions) => Promise<string>;
+  extractDocx?: (buffer: Buffer) => Promise<string>;
+  escalationsLeft?: number;
+  threshold?: number;
+}
+
+async function defaultExtractDocx(buffer: Buffer): Promise<string> {
+  const mammoth = await import("mammoth");
+  const { value } = await mammoth.extractRawText({ buffer });
+  return value;
+}
+
+export async function readDocument(
+  doc: SourceDocument,
+  deps: ReadDeps = {}
+): Promise<ReadResult> {
+  const generate = deps.generate ?? geminiGenerate;
+  const extractDocx = deps.extractDocx ?? defaultExtractDocx;
+  const threshold =
+    deps.threshold ??
+    Number(process.env.INTAKE_OCR_QUALITY_THRESHOLD ?? DEFAULT_QUALITY_THRESHOLD);
+  const escalationsLeft = deps.escalationsLeft ?? Number.POSITIVE_INFINITY;
+
+  // Το DOCX έχει ήδη κείμενο — το OCR θα ήταν σπατάλη και χειρότερο αποτέλεσμα.
+  if (doc.mimeType === DOCX_MIME) {
+    const text = await extractDocx(doc.buffer);
+    return {
+      text,
+      model: "docx",
+      quality: scoreOcrText(text, doc.pageCount),
+      escalated: false,
+    };
+  }
+
+  const parts = [
+    { text: "Μετέτρεψε αυτό το έγγραφο σε κείμενο." },
+    { inlineData: { mimeType: doc.mimeType, data: doc.buffer.toString("base64") } },
+  ];
+
+  const first = await generate({ model: liteModel(), system: OCR_SYSTEM, parts });
+  const firstQuality = scoreOcrText(first, doc.pageCount);
+
+  if (!needsEscalation(firstQuality, threshold) || escalationsLeft < 1) {
+    return { text: first, model: liteModel(), quality: firstQuality, escalated: false };
+  }
+
+  const second = await generate({ model: proModel(), system: OCR_SYSTEM, parts });
+  const secondQuality = scoreOcrText(second, doc.pageCount);
+
+  // Η κλιμάκωση δεν εγγυάται βελτίωση — κρατάμε την καλύτερη ανάγνωση.
+  return secondQuality >= firstQuality
+    ? { text: second, model: proModel(), quality: secondQuality, escalated: true }
+    : { text: first, model: liteModel(), quality: firstQuality, escalated: true };
+}
