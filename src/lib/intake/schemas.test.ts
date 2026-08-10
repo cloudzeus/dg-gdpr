@@ -1,6 +1,6 @@
 // src/lib/intake/schemas.test.ts
 import { describe, it, expect } from "vitest";
-import { ExtractionSchema, ReasoningSchema, parseAiJson } from "./schemas";
+import { ExtractionSchema, ReasoningSchema, parseAiJson, RemedyTypeEnum, PolicyTypeEnum } from "./schemas";
 
 const validExtraction = {
   parties: [
@@ -145,5 +145,20 @@ describe("parseAiJson", () => {
   it("πετά σε κείμενο χωρίς JSON", () => {
     expect(() => parseAiJson("δεν βρήκα τίποτα")).toThrow(/JSON/i);
     expect(() => parseAiJson("")).toThrow(/JSON/i);
+  });
+});
+
+describe("συγχρονισμός με το Prisma", () => {
+  // Το CREATE_CONTRACT_CLAUSES προστέθηκε στο Prisma και στο prompt αλλά όχι
+  // εδώ· το μοντέλο το επέστρεψε, το Zod το απέρριψε, και η νομική κρίση
+  // απέτυχε ολόκληρη. Αυτή η δοκιμή κάνει την απόκλιση αδύνατη.
+  it("το RemedyTypeEnum καλύπτει κάθε τιμή του Prisma RemedyType", async () => {
+    const { RemedyType } = await import("@prisma/client");
+    expect([...RemedyTypeEnum.options].sort()).toEqual(Object.keys(RemedyType).sort());
+  });
+
+  it("το PolicyTypeEnum καλύπτει κάθε τιμή του Prisma PolicyType", async () => {
+    const { PolicyType } = await import("@prisma/client");
+    expect([...PolicyTypeEnum.options].sort()).toEqual(Object.keys(PolicyType).sort());
   });
 });

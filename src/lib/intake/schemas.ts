@@ -37,8 +37,9 @@ export const PolicyTypeEnum = z.enum([
 ]);
 
 export const RemedyTypeEnum = z.enum([
-  "CREATE_POLICY", "CREATE_DPIA", "CREATE_DPA", "CREATE_JCA",
-  "CREATE_ROPA_ENTRY", "CREATE_ASSESSMENT", "ASSIGN_DPO", "CREATE_TRAINING",
+  "CREATE_POLICY", "CREATE_DPIA", "CREATE_DPA", "CREATE_CONTRACT_CLAUSES",
+  "CREATE_JCA", "CREATE_ROPA_ENTRY", "CREATE_ASSESSMENT", "ASSIGN_DPO",
+  "CREATE_TRAINING",
 ]);
 
 export const VendorTriageEnum = z.enum(["PROCESSES_DATA", "SUPPLIES_ONLY", "UNCLEAR"]);
