@@ -25,6 +25,7 @@ const extraction: Extraction = {
   signedAt: null,
   term: null,
   dataCategories: ["Στοιχεία πελατών"],
+  purposes: ["Λειτουργία και υποστήριξη του συστήματος"],
   vendors: [],
   recipientHint: null,
   crossBorderTransfer: false,

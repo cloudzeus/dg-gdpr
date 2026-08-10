@@ -186,7 +186,8 @@ export const createDpa: Remedy = async (gap, ctx) => {
   }
 
   const dataCategories = orDefault(ctx.extraction.dataCategories, DEFAULT_DATA_CATEGORIES);
-  const purposes = DEFAULT_PURPOSES; // η εξαγωγή δεν κρατά σκοπούς ξεχωριστά
+  // Σκοποί από το έγγραφο· η προεπιλογή μπαίνει μόνο αν δεν βρέθηκε κανένας.
+  const purposes = ctx.extraction.purposes.length ? ctx.extraction.purposes : DEFAULT_PURPOSES;
   const retentionPeriod = ctx.extraction.term?.trim() || DEFAULT_RETENTION;
 
   const clauses = buildArticle28Clauses(clausesInputFor(ctx, pair));
@@ -300,7 +301,7 @@ export const createJca: Remedy = async (gap, ctx) => {
   }
 
   const dataCategories = orDefault(ctx.extraction.dataCategories, DEFAULT_DATA_CATEGORIES);
-  const purposes = DEFAULT_PURPOSES;
+  const purposes = ctx.extraction.purposes.length ? ctx.extraction.purposes : DEFAULT_PURPOSES;
   const retentionPeriod = ctx.extraction.term?.trim() || DEFAULT_RETENTION;
 
   const clauses = buildArticle28Clauses(clausesInputFor(ctx, pair));

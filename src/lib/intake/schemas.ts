@@ -55,6 +55,8 @@ export const ExtractionSchema = z.object({
   signedAt: optionalText,
   term: optionalText,
   dataCategories: z.array(z.string()).default([]),
+  /** Σκοποί επεξεργασίας — υποχρεωτικό στοιχείο σύμβασης άρθρου 28 παρ. 3. */
+  purposes: z.array(z.string()).default([]),
   vendors: z.array(VendorSchema).default([]),
   /** Ο κατονομαζόμενος αποδέκτης μιας προσφοράς — ένδειξη αντισυμβαλλομένου, όχι μέρος. */
   recipientHint: optionalText,
