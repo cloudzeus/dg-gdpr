@@ -46,17 +46,95 @@
 ```prisma
 // ─── Compliance Intake (Wizard Στάδιο 1) ─────────────────────────────────────
 
-enum IntakeStatus  { DRAFT PROCESSING AWAITING_REVIEW COMMITTED FAILED CANCELLED }
-enum IntakeStage   { UPLOAD OCR EXTRACTION MATCHING REASONING REVIEW }
-enum OcrStatus     { PENDING RUNNING DONE ESCALATED FAILED }
-enum DocumentKind  { CONTRACT OFFER ANNEX CORRESPONDENCE OTHER }
-enum MatchMethod   { VAT NAME MANUAL NONE }
-enum PartySide     { OWN_MOTHER OWN_GROUP EXTERNAL }
-enum PartyRole     { CONTROLLER PROCESSOR JOINT_CONTROLLER SUB_PROCESSOR RECIPIENT THIRD_PARTY }
-enum GapCategory   { POLICY DPIA ROPA TRAINING TECHNICAL CONTRACT DPO }
-enum GapSeverity   { CRITICAL HIGH MEDIUM LOW }
-enum RemedyType    { CREATE_POLICY CREATE_DPIA CREATE_DPA CREATE_JCA CREATE_ROPA_ENTRY CREATE_ASSESSMENT ASSIGN_DPO CREATE_TRAINING }
-enum GapStatus     { OPEN DRAFTED RESOLVED DISMISSED }
+enum IntakeStatus {
+  DRAFT
+  PROCESSING
+  AWAITING_REVIEW
+  COMMITTED
+  FAILED
+  CANCELLED
+}
+
+enum OcrStatus {
+  PENDING
+  RUNNING
+  DONE
+  FAILED
+}
+
+enum IntakeStage {
+  UPLOAD
+  OCR
+  EXTRACTION
+  MATCHING
+  REASONING
+  REVIEW
+}
+
+enum DocumentKind {
+  CONTRACT
+  OFFER
+  ANNEX
+  CORRESPONDENCE
+  OTHER
+}
+
+enum MatchMethod {
+  VAT
+  NAME
+  MANUAL
+  NONE
+}
+
+enum PartySide {
+  OWN_MOTHER
+  OWN_GROUP
+  EXTERNAL
+}
+
+enum PartyRole {
+  CONTROLLER
+  PROCESSOR
+  JOINT_CONTROLLER
+  SUB_PROCESSOR
+  RECIPIENT
+  THIRD_PARTY
+}
+
+enum GapCategory {
+  POLICY
+  DPIA
+  ROPA
+  TRAINING
+  TECHNICAL
+  CONTRACT
+  DPO
+}
+
+enum GapSeverity {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum RemedyType {
+  CREATE_POLICY
+  CREATE_DPIA
+  CREATE_DPA
+  CREATE_JCA
+  CREATE_ROPA_ENTRY
+  CREATE_ASSESSMENT
+  ASSIGN_DPO
+  CREATE_TRAINING
+}
+
+enum GapStatus {
+  OPEN
+  DRAFTED
+  RESOLVED
+  DISMISSED
+}
 ```
 
 - [ ] **Step 2: Πρόσθεσε τα μοντέλα κάτω από τα enums**
@@ -86,8 +164,7 @@ model ComplianceIntake {
   gaps      IntakeGap[]
 
   @@index([status])
-  @@index([userId])
-  @@index([projectId])
+  @@index([userId, status])
 }
 
 model IntakeDocument {
@@ -113,7 +190,6 @@ model IntakeDocument {
 
   intake ComplianceIntake @relation(fields: [intakeId], references: [id], onDelete: Cascade)
 
-  @@index([intakeId])
   @@index([fileHash])
 }
 
@@ -143,8 +219,6 @@ model IntakeParty {
   intake  ComplianceIntake @relation(fields: [intakeId], references: [id], onDelete: Cascade)
   company Company?         @relation(fields: [companyId], references: [id])
 
-  @@index([intakeId])
-  @@index([companyId])
 }
 
 model IntakeGap {
@@ -169,10 +243,10 @@ model IntakeGap {
   updatedAt DateTime @updatedAt
 
   intake ComplianceIntake @relation(fields: [intakeId], references: [id], onDelete: Cascade)
-
-  @@index([intakeId])
 }
 ```
+
+Οι δείκτες σε στήλες ξένου κλειδιού παραλείπονται σκόπιμα: η InnoDB δημιουργεί ήδη έναν μαζί με κάθε περιορισμό `FOREIGN KEY`, οπότε ένας ρητός `@@index` θα ήταν δεύτερος δείκτης για την ίδια δουλειά.
 
 - [ ] **Step 3: Πρόσθεσε τα back-relations στα υπάρχοντα μοντέλα**
 
@@ -328,9 +402,14 @@ const LOOKALIKES: Record<string, string> = {
 export function normalizeVat(raw: string | null | undefined): string | null {
   if (!raw) return null;
 
-  const swapped = [...raw.trim()].map((ch) => LOOKALIKES[ch] ?? ch).join("");
-  // Πετάμε προθέματα χώρας και ό,τι δεν είναι ψηφίο.
-  const digits = swapped.replace(/^\s*(EL|GR)\s*/i, "").replace(/\D/g, "");
+  // Η ΣΕΙΡΑ ΕΧΕΙ ΣΗΜΑΣΙΑ: το πρόθεμα χώρας φεύγει ΠΡΙΝ την αντικατάσταση
+  // ομόγραφων. Αλλιώς το πεζό «l» του «el» γίνεται «1» και το ΑΦΜ βγαίνει
+  // 10ψήφιο, άρα απορρίπτεται.
+  const stripped = raw.trim().replace(/^(EL|GR)\s*/i, "");
+  const digits = [...stripped]
+    .map((ch) => LOOKALIKES[ch] ?? ch)
+    .join("")
+    .replace(/\D/g, "");
 
   if (digits.length === 8) return `0${digits}`;
   if (digits.length === 9) return digits;
@@ -503,8 +582,48 @@ describe("matchParty", () => {
     expect(matchParty({ name: "Άλλο", vat: "123456789" }, ALL)).toBeNull();
   });
 
+  it("ΔΕΝ ταιριάζει με ΑΦΜ που κόβεται στο ψηφίο ελέγχου", () => {
+    // Ίδια ψηφία και στις δύο πλευρές, αλλά άκυρο ΑΦΜ: αν το δεχόμασταν, ένα
+    // σφάλμα OCR θα έδενε τη σύμβαση σε λάθος εταιρία.
+    const bad: MatchCandidate = {
+      id: "bad", name: "Χ", legalName: null, vatNumber: "997939641", side: "EXTERNAL",
+    };
+    expect(matchParty({ name: "άσχετο όνομα", vat: "997939641" }, [bad])).toBeNull();
+  });
+
+  it("πέφτει πίσω στο όνομα όταν το ΑΦΜ είναι άκυρο", () => {
+    const c: MatchCandidate = {
+      id: "c9", name: "ΚΟΣΜΟΚΑΡ", legalName: null, vatNumber: "997939641", side: "EXTERNAL",
+    };
+    const m = matchParty({ name: "ΚΟΣΜΟΚΑΡ Α.Ε.", vat: "997939641" }, [c]);
+    expect(m).toMatchObject({ candidateId: "c9", method: "NAME" });
+  });
+
   it("δεν ταιριάζει σε κενή λίστα υποψηφίων", () => {
     expect(matchParty({ name: "DGSOFT", vat: "997939640" }, [])).toBeNull();
+  });
+
+  it("ΔΕΝ μαντεύει όταν δύο εταιρίες έχουν το ίδιο κανονικοποιημένο όνομα", () => {
+    const alfa1: MatchCandidate = {
+      id: "a1", name: "ΑΛΦΑ", legalName: "ΑΛΦΑ Α.Ε.", vatNumber: "094014201", side: "EXTERNAL",
+    };
+    const alfa2: MatchCandidate = {
+      id: "a2", name: "ΑΛΦΑ ΕΠΕ", legalName: null, vatNumber: "094059163", side: "EXTERNAL",
+    };
+    // Και οι δύο σειρές — αυτό ακριβώς είναι το ζητούμενο.
+    expect(matchParty({ name: "ΑΛΦΑ", vat: null }, [alfa1, alfa2])).toBeNull();
+    expect(matchParty({ name: "ΑΛΦΑ", vat: null }, [alfa2, alfa1])).toBeNull();
+  });
+
+  it("ασάφεια ΑΦΜ: προτιμά τη δική μας εταιρία, ανεξάρτητα από τη σειρά", () => {
+    const asOrg: MatchCandidate = {
+      id: "org", name: "DGSOFT", legalName: null, vatNumber: "997939640", side: "OWN_MOTHER",
+    };
+    const asCompany: MatchCandidate = {
+      id: "dup", name: "DGSOFT", legalName: null, vatNumber: "997939640", side: "EXTERNAL",
+    };
+    expect(matchParty({ name: "-", vat: "997939640" }, [asCompany, asOrg])?.candidateId).toBe("org");
+    expect(matchParty({ name: "-", vat: "997939640" }, [asOrg, asCompany])?.candidateId).toBe("org");
   });
 
   it("αγνοεί υποψήφιους χωρίς ΑΦΜ κατά την αντιστοίχιση ΑΦΜ", () => {
@@ -523,7 +642,7 @@ Expected: FAIL — `Failed to resolve import "./company-match"`
 
 ```ts
 // src/lib/intake/company-match.ts
-import { normalizeVat } from "./vat";
+import { normalizeVat, isValidGreekVat } from "./vat";
 
 export type PartySideValue = "OWN_MOTHER" | "OWN_GROUP" | "EXTERNAL";
 export type MatchMethodValue = "VAT" | "NAME" | "MANUAL" | "NONE";
@@ -625,20 +744,39 @@ export function matchParty(
   party: ExtractedParty,
   candidates: MatchCandidate[]
 ): PartyMatch | null {
+  // Το ψηφίο ελέγχου ΠΡΕΠΕΙ να επαληθευτεί πριν δεχθούμε ταίριασμα με ΑΦΜ.
+  // Το `normalizeVat` καθαρίζει μορφή, δεν κρίνει αν ο αριθμός είναι ΑΦΜ:
+  // μια ημερομηνία ή ένας αριθμός παραστατικού έχουν κι αυτά ψηφία και
+  // διαχωριστικά. Ο έλεγχος κόβει περίπου το 90% των τυχαίων ψηφίων. Δεν
+  // είναι τέλειος — περίπου 1 στα 10 περνά τυχαία — γι' αυτό η τελική άμυνα
+  // παραμένει η ανθρώπινη επιβεβαίωση στο βήμα 4 του wizard.
   const vat = normalizeVat(party.vat);
-  if (vat) {
-    const hit = candidates.find((c) => normalizeVat(c.vatNumber) === vat);
+  if (vat && isValidGreekVat(vat)) {
+    const hits = candidates.filter((c) => normalizeVat(c.vatNumber) === vat);
+    // Το Company.vatNumber είναι @unique, οπότε σύγκρουση σημαίνει ότι η μαμά
+    // υπάρχει και ως εγγραφή Company. Προτιμάμε τη δική μας πλευρά: το «αυτοί
+    // είμαστε εμείς» είναι η πιο βαριά πληροφορία και δεν πρέπει να εξαρτάται
+    // από τη σειρά του πίνακα.
+    const hit = hits.find((c) => c.side !== "EXTERNAL") ?? hits[0];
     if (hit) return { candidateId: hit.id, method: "VAT", score: 1, side: hit.side };
   }
 
   const name = normalizeCompanyName(party.name);
   if (name) {
-    const hit = candidates.find(
+    const hits = candidates.filter(
       (c) =>
         normalizeCompanyName(c.name) === name ||
         normalizeCompanyName(c.legalName) === name
     );
-    if (hit) return { candidateId: hit.id, method: "NAME", score: 0.8, side: hit.side };
+
+    // Ένα ταίριασμα: το δεχόμαστε. Περισσότερα: ΔΕΝ μαντεύουμε. Δύο εταιρίες
+    // μπορούν κάλλιστα να λέγονται «ΑΛΦΑ» με διαφορετικό ΑΦΜ, και η επιλογή
+    // «όποια βρέθηκε πρώτη» εξαρτάται από τη σειρά του πίνακα. Το μέρος
+    // επιστρέφεται ως αταίριαστο και το λύνει ο άνθρωπος στο βήμα 4 — μια
+    // λανθασμένη αντιστοίχιση φαίνεται σωστή και δεν ξανακοιτάζεται ποτέ.
+    if (hits.length === 1) {
+      return { candidateId: hits[0].id, method: "NAME", score: 0.8, side: hits[0].side };
+    }
   }
 
   return null;
@@ -716,6 +854,12 @@ describe("scoreOcrText", () => {
     expect(scoreOcrText(withTerms, 1)).toBeGreaterThan(scoreOcrText(withoutTerms, 1));
   });
 
+  it("η καθαρότητα είναι πολλαπλασιαστής, όχι ένα σήμα ανάμεσα σε άλλα", () => {
+    // Ίδιο κείμενο, ίδιοι όροι, ίδια ελληνικότητα — μόνο τα σκουπίδια αλλάζουν.
+    // Με προσθετικά βάρη αυτό έπαιρνε 0.79 και περνούσε την πύλη.
+    expect(scoreOcrText("�".repeat(200) + GOOD, 1)).toBe(0);
+  });
+
   it("το score μένει πάντα στο [0,1]", () => {
     for (const [text, pages] of [[GOOD, 1], ["", 1], ["�", 5], [GOOD.repeat(50), 1]] as const) {
       const s = scoreOcrText(text as string, pages as number);
@@ -784,11 +928,15 @@ function clamp01(n: number): number {
 }
 
 /**
- * Score 0–1. Τέσσερα σήματα, σταθμισμένα:
- *  - πυκνότητα κειμένου ανά σελίδα (0.30)
- *  - αναλογία ελληνικών προς λατινικά γράμματα (0.30)
- *  - απουσία replacement characters (0.20)
- *  - παρουσία συμβατικών όρων (0.20)
+ * Score 0–1 από τρία σταθμισμένα σήματα, ΠΟΛΛΑΠΛΑΣΙΑΣΜΕΝΑ με την καθαρότητα:
+ *
+ *   (πυκνότητα·0.375 + ελληνικότητα·0.375 + συμβατικοί όροι·0.25) × καθαρότητα
+ *
+ * Η καθαρότητα είναι πολλαπλασιαστής και όχι τέταρτο σήμα, επειδή τα
+ * replacement characters δεν είναι μία γνώμη ανάμεσα σε άλλες — διαφθείρουν
+ * ολόκληρη την ανάγνωση. Μια σελίδα κατά 35% σκουπίδι είναι άχρηστη όσοι
+ * συμβατικοί όροι κι αν επέζησαν. Με προσθετικά βάρη έπαιρνε 0.79 και
+ * περνούσε την πύλη· τώρα μηδενίζεται.
  */
 export function scoreOcrText(text: string, pageCount: number | null | undefined): number {
   const body = (text ?? "").trim();
@@ -816,7 +964,7 @@ export function scoreOcrText(text: string, pageCount: number | null | undefined)
   const termScore = clamp01(found / 4);
 
   return clamp01(
-    density * 0.3 + greekRatio * 0.3 + cleanliness * 0.2 + termScore * 0.2
+    (density * 0.375 + greekRatio * 0.375 + termScore * 0.25) * cleanliness
   );
 }
 
@@ -1533,7 +1681,7 @@ export interface GeminiOptions {
 
 /** Το μοντέλο για OCR ανά σελίδα — φθηνό και γρήγορο. */
 export function liteModel(): string {
-  return process.env.GEMINI_MODEL_LITE ?? "gemini-2.5-flash-lite";
+  return process.env.GEMINI_MODEL_LITE ?? "gemini-3.5-flash-lite";
 }
 
 /** Το μοντέλο για κλιμάκωση και δομημένη εξαγωγή. */
@@ -1596,7 +1744,7 @@ Expected: PASS — 10 tests
 ```
 # Gemini — OCR και δομημένη εξαγωγή για τον wizard πρόσληψης
 GEMINI_API_KEY=
-GEMINI_MODEL_LITE=gemini-2.5-flash-lite
+GEMINI_MODEL_LITE=gemini-3.5-flash-lite
 GEMINI_MODEL_PRO=gemini-2.5-pro
 INTAKE_OCR_QUALITY_THRESHOLD=0.7
 INTAKE_MAX_PRO_ESCALATIONS=5
@@ -2864,7 +3012,7 @@ export async function POST(req: NextRequest) {
         ocrModel: result.model,
         ocrQuality: result.quality,
         escalated: result.escalated,
-        ocrStatus: result.escalated ? "ESCALATED" : "DONE",
+        ocrStatus: "DONE",
       },
     });
 

@@ -1,15 +1,14 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { requireUserId } from "@/lib/current-user";
 import { logAction } from "@/lib/action-logger";
 import { revalidatePath } from "next/cache";
 import { buildDpaWord } from "@/lib/export-dpa-word";
 import { uploadToBunny } from "@/lib/bunny";
 
 export async function createDpia(formData: FormData): Promise<{ id: string }> {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Μη εξουσιοδοτημένος");
+  const userId = await requireUserId();
 
   const projectId = (formData.get("projectId") as string) || null;
   const title = formData.get("title") as string;
@@ -21,7 +20,7 @@ export async function createDpia(formData: FormData): Promise<{ id: string }> {
 
   const report = await prisma.dpiaReport.create({
     data: {
-      userId: session.user.id,
+      userId: userId,
       projectId,
       title,
       processingPurpose,
@@ -41,8 +40,7 @@ export async function createDpia(formData: FormData): Promise<{ id: string }> {
 export async function createDpaContract(
   formData: FormData
 ): Promise<{ id: string; pdfUrl: string | null }> {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Μη εξουσιοδοτημένος");
+  const userId = await requireUserId();
 
   const projectId = formData.get("projectId") as string;
   const title = formData.get("title") as string;
@@ -76,7 +74,7 @@ export async function createDpaContract(
 
   const contract = await prisma.dpaContract.create({
     data: {
-      userId: session.user.id,
+      userId: userId,
       projectId,
       title,
       processorName, processorVat, processorAddress, processorRep, processorEmail,
@@ -134,8 +132,7 @@ export async function createDpaContract(
 }
 
 export async function updateDpaContract(formData: FormData): Promise<void> {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Μη εξουσιοδοτημένος");
+  await requireUserId();
 
   const id      = formData.get("id") as string;
   const status  = formData.get("status") as string;
@@ -159,8 +156,7 @@ export async function updateDpaContract(formData: FormData): Promise<void> {
 }
 
 export async function updateDpia(formData: FormData): Promise<void> {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Μη εξουσιοδοτημένος");
+  await requireUserId();
 
   const id = formData.get("id") as string;
   const status = formData.get("status") as string;
@@ -206,8 +202,7 @@ export async function assessDpiaRisk(
   impact: number,
   reasoning?: string,
 ): Promise<void> {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Μη εξουσιοδοτημένος");
+  await requireUserId();
 
   const clamp = (n: number) => Math.min(5, Math.max(1, Math.round(n)));
   await prisma.dpiaReport.update({
@@ -225,16 +220,14 @@ export async function assessDpiaRisk(
 }
 
 export async function deleteDpia(id: string): Promise<void> {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Μη εξουσιοδοτημένος");
+  await requireUserId();
   await prisma.dpiaReport.delete({ where: { id } });
   await logAction({ action: "DELETE", entity: "DpiaReport", entityId: id });
   revalidatePath("/dpia");
 }
 
 export async function deleteDpa(id: string): Promise<void> {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Μη εξουσιοδοτημένος");
+  await requireUserId();
   await prisma.dpaContract.delete({ where: { id } });
   await logAction({ action: "DELETE", entity: "DpaContract", entityId: id });
   revalidatePath("/dpia");
@@ -245,8 +238,7 @@ export async function saveSignedDocUrl(
   type: "dpia" | "dpa",
   url: string
 ): Promise<void> {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Μη εξουσιοδοτημένος");
+  await requireUserId();
   if (type === "dpia") {
     await prisma.dpiaReport.update({ where: { id }, data: { signedDocUrl: url } });
     revalidatePath(`/dpia/${id}`);
@@ -260,8 +252,7 @@ export async function saveSignedDocUrl(
 }
 
 export async function regenerateDpaWord(id: string): Promise<{ pdfUrl: string }> {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Μη εξουσιοδοτημένος");
+  await requireUserId();
 
   const contract = await prisma.dpaContract.findUnique({
     where: { id },

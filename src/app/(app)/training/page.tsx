@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import { requireUserId } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
 import { Topbar } from "@/components/layout/topbar";
 import { LegalSidebar } from "@/components/shared/legal-sidebar";
@@ -13,6 +14,9 @@ import { TrainingInviteButton } from "@/components/modules/training-invite-butto
 
 export default async function TrainingPage() {
   const session = await auth();
+  // Το πραγματικό User.id από τη βάση: παλιά tokens κρατούν Entra GUID,
+  // που ως userId δεν αντιστοιχεί σε καμία εγγραφή.
+  const userId = await requireUserId();
   const role = (session?.user as any)?.role as string | undefined;
   const isAdmin = role === "ADMIN" || role === "DPO";
 
@@ -22,14 +26,14 @@ export default async function TrainingPage() {
       include: {
         questions: { select: { id: true } },
         results: {
-          where: { userId: session!.user!.id! },
+          where: { userId: userId },
           orderBy: { completedAt: "desc" },
           take: 1,
         },
       },
     }),
     prisma.trainingResult.findMany({
-      where: { userId: session!.user!.id! },
+      where: { userId: userId },
       orderBy: { completedAt: "desc" },
       include: { module: { select: { title: true } } },
     }),

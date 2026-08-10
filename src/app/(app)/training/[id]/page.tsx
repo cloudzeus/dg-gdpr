@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import { requireUserId } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import { Topbar } from "@/components/layout/topbar";
@@ -16,6 +17,9 @@ export default async function TrainingModulePage({
 }) {
   const { id } = await params;
   const session = await auth();
+  // Το πραγματικό User.id από τη βάση: παλιά tokens κρατούν Entra GUID,
+  // που ως userId δεν αντιστοιχεί σε καμία εγγραφή.
+  const userId = await requireUserId();
 
   const [mod, myResults] = await Promise.all([
     prisma.trainingModule.findUnique({
@@ -29,7 +33,7 @@ export default async function TrainingModulePage({
       },
     }),
     prisma.trainingResult.findMany({
-      where: { userId: session!.user!.id!, moduleId: id },
+      where: { userId: userId, moduleId: id },
       orderBy: { completedAt: "desc" },
     }),
   ]);
@@ -170,7 +174,7 @@ export default async function TrainingModulePage({
                 weight: q.weight,
               };
             })}
-            userId={session!.user!.id!}
+            userId={userId}
           />
         </div>
       </main>

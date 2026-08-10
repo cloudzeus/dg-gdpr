@@ -1,18 +1,17 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { requireUserId } from "@/lib/current-user";
 import { logAction } from "@/lib/action-logger";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 export async function createVoIPConfig(formData: FormData) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Μη εξουσιοδοτημένος");
+  const userId = await requireUserId();
 
   const config = await prisma.voIPConfig.create({
     data: {
-      userId: session.user.id,
+      userId: userId,
       providerName: formData.get("providerName") as string,
       sipServer: formData.get("sipServer") as string | undefined,
       recordingEnabled: formData.get("recordingEnabled") === "on",
@@ -33,8 +32,7 @@ export async function createVoIPConfig(formData: FormData) {
 }
 
 export async function updateVoIPConfig(id: string, formData: FormData) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Μη εξουσιοδοτημένος");
+  await requireUserId();
 
   await prisma.voIPConfig.update({
     where: { id },
