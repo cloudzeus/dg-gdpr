@@ -340,6 +340,7 @@ function PartyRow({ party, intakeId, isAdmin }: { party: Party; intakeId: string
               prefillVat={party.extractedVat}
               prefillAddress={party.extractedAddress}
               prefillEmail={party.extractedEmail}
+              partyId={party.id}
               onClose={() => setShowCreate(false)}
             />
           )}
@@ -525,6 +526,7 @@ function CreateCompanyModal({
   prefillVat,
   prefillAddress,
   prefillEmail,
+  partyId,
   onClose,
 }: {
   intakeId: string;
@@ -534,6 +536,8 @@ function CreateCompanyModal({
   prefillVat?: string | null;
   prefillAddress?: string | null;
   prefillEmail?: string | null;
+  /** Όταν δίνεται, η νέα εταιρία συνδέεται με αυτό το υπάρχον μέρος αντί να προστεθεί δεύτερη γραμμή. */
+  partyId?: string;
   onClose: () => void;
 }) {
   const [form, setForm] = useState({
@@ -622,7 +626,8 @@ function CreateCompanyModal({
             contactEmail: form.contactEmail || null,
           },
           relationships,
-          side
+          side,
+          partyId
         );
         setResult(res);
       } catch (e) {

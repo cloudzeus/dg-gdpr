@@ -111,9 +111,29 @@ export async function createCompanyForIntake(
     contactEmail?: string | null;
   },
   relationships: string[],
-  side: "OWN_MOTHER" | "OWN_GROUP" | "EXTERNAL"
+  side: "OWN_MOTHER" | "OWN_GROUP" | "EXTERNAL",
+  /**
+   * Όταν η δημιουργία ξεκινά από μέρος που εξήχθη αλλά δεν ταίριαξε, το
+   * υπάρχον `IntakeParty` συνδέεται με τη νέα εταιρία αντί να προστεθεί
+   * δεύτερη γραμμή για την ίδια οντότητα.
+   */
+  partyId?: string
 ): Promise<{ companyId: string; created: boolean }> {
   await requireAdmin();
+
+  let existingParty: { id: string; intakeId: string; companyId: string | null } | null = null;
+  if (partyId) {
+    existingParty = await prisma.intakeParty.findUnique({
+      where: { id: partyId },
+      select: { id: true, intakeId: true, companyId: true },
+    });
+    if (!existingParty || existingParty.intakeId !== intakeId) {
+      throw new Error("Το μέρος δεν ανήκει σε αυτή την πρόσληψη");
+    }
+    if (existingParty.companyId !== null) {
+      throw new Error("Το μέρος έχει ήδη συνδεθεί με εταιρία");
+    }
+  }
 
   const name = input.name?.trim();
   if (!name) throw new Error("Απαιτείται επωνυμία εταιρίας");
@@ -164,9 +184,32 @@ export async function createCompanyForIntake(
     });
   }
 
-  // Η προσθήκη ως μέρος περνάει από την ίδια λογική με την επιλογή υπάρχουσας
-  // εταιρίας — δεν εφευρίσκουμε δεύτερο δρόμο δημιουργίας IntakeParty.
-  await addPartyManually(intakeId, companyId, side);
+  if (existingParty) {
+    // Το μέρος υπήρχε ήδη — απλώς δεν είχε ταιριάξει με εταιρία. Συνδέουμε
+    // τη νέα εταιρία σε αυτό αντί να προσθέσουμε δεύτερη γραμμή για την ίδια
+    // οντότητα· τα extracted πεδία μένουν άθικτα, δείχνουν τι έλεγε το
+    // έγγραφο, ενώ η σύνδεση δείχνει τι αποφάσισε ο άνθρωπος.
+    await prisma.intakeParty.update({
+      where: { id: existingParty.id },
+      data: {
+        companyId,
+        side: side as never,
+        matchMethod: "MANUAL" as never,
+        matchScore: null,
+      },
+    });
+
+    await logAction({
+      action: "UPDATE",
+      entity: "IntakeParty",
+      entityId: existingParty.id,
+      details: { companyId, side, source: "created-from-document" },
+    });
+  } else {
+    // Η προσθήκη ως μέρος περνάει από την ίδια λογική με την επιλογή υπάρχουσας
+    // εταιρίας — δεν εφευρίσκουμε δεύτερο δρόμο δημιουργίας IntakeParty.
+    await addPartyManually(intakeId, companyId, side);
+  }
 
   revalidatePath(`/intake/${intakeId}`);
   revalidatePath("/admin/companies");
