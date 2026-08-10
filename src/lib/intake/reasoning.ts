@@ -22,6 +22,10 @@ const SYSTEM = `Είσαι νομικός σύμβουλος GDPR για ελλ�
 }
 
 Κανόνες:
+- Ο ρόλος κρίνεται ΜΟΝΟ από το ποιος καθορίζει σκοπούς και μέσα (άρθρο 4 παρ. 7-8).
+  Δεν έχει σημασία ποιος συντάσσει το έγγραφο ή ποιος πληρώνει ποιον. Μια εταιρεία
+  λογισμικού που αναπτύσσει σύστημα κατ' εντολή πελάτη είναι Εκτελών, ακόμη κι αν
+  είναι αυτή που έγραψε τη σύμβαση.
 - Δώσε ρόλο σε ΚΑΘΕ μέρος του καταλόγου, με το ίδιο ακριβώς "name", και σε κανέναν άλλον.
 - Οι προμηθευτές ΔΕΝ είναι μέρη. Όσοι επεξεργάζονται δεδομένα είναι υποψήφιοι
   υποεκτελούντες και δικαιολογούν κενό· όσοι απλώς προμηθεύουν εξοπλισμό ΔΕΝ
@@ -40,12 +44,6 @@ export interface ConfirmedParty {
 export interface ReasoningDeps {
   chat?: (p: { system: string; user: string; temperature?: number; maxTokens?: number }) => Promise<string>;
 }
-
-const SIDE_LABEL: Record<ConfirmedParty["side"], string> = {
-  OWN_MOTHER: "δική μας εταιρία",
-  OWN_GROUP: "δική μας εταιρία",
-  EXTERNAL: "αντισυμβαλλόμενος",
-};
 
 function buildUserPrompt(
   extraction: Extraction,
@@ -85,7 +83,7 @@ ${extraction.vendors.filter((v) => v.triage === "SUPPLIES_ONLY").map((v) => `- $
 ${extraction.vendors.filter((v) => v.triage === "UNCLEAR").map((v) => `- ${v.name}`).join("\n") || "κανένας"}
 
 ΤΑ ΜΕΡΗ (δεδομένα — μην προσθέσεις άλλα, μην παραλείψεις κανένα)
-${parties.map((p, i) => `${i + 1}. ${p.name} — ΑΦΜ ${p.vat ?? "—"} — ${SIDE_LABEL[p.side]}`).join("\n")}`;
+${parties.map((p, i) => `${i + 1}. ${p.name} — ΑΦΜ ${p.vat ?? "—"}`).join("\n")}`;
 }
 
 export async function reasonAboutRoles(
