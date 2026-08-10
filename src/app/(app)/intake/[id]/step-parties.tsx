@@ -57,6 +57,7 @@ export async function StepParties({ intake, extraction }: { intake: Intake; extr
       subsidiaries={subsidiaries}
       recipientMatchId={recipientMatch?.id ?? null}
       orgName={org?.name ?? null}
+      orgHasVat={!!org?.vatNumber}
       motherMatchId={motherMatch?.id ?? null}
       motherMatchName={motherMatch?.name ?? null}
       isAdmin={!!adminUser}

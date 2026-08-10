@@ -75,6 +75,7 @@ export function PartiesClient({
   subsidiaries,
   recipientMatchId,
   orgName,
+  orgHasVat,
   motherMatchId,
   motherMatchName,
   isAdmin,
@@ -85,6 +86,7 @@ export function PartiesClient({
   subsidiaries: Company[];
   recipientMatchId: string | null;
   orgName: string | null;
+  orgHasVat: boolean;
   motherMatchId: string | null;
   motherMatchName: string | null;
   isAdmin: boolean;
@@ -161,6 +163,20 @@ export function PartiesClient({
                   }
                   sideMode="choice"
                   defaultCompanyId={motherMatchId}
+                  defaultSide="OWN_MOTHER"
+                  submitLabel="Προσθήκη ως δική μας εταιρία"
+                  isAdmin={isAdmin}
+                />
+              ) : orgHasVat ? (
+                <AnchorPanel
+                  intakeId={intake.id}
+                  companies={companies}
+                  heading="Δεν εντοπίστηκε δική μας εταιρία"
+                  description={
+                    <>Τα έγγραφα δεν κατονομάζουν τη δική μας εταιρία — συνηθισμένο σε προσφορές. Δήλωσέ την εδώ.</>
+                  }
+                  sideMode="choice"
+                  defaultCompanyId={null}
                   defaultSide="OWN_MOTHER"
                   submitLabel="Προσθήκη ως δική μας εταιρία"
                   isAdmin={isAdmin}
@@ -785,15 +801,52 @@ function VendorsSection({ intakeId, vendors }: { intakeId: string; vendors: Vend
           <p className="text-xs font-semibold" style={{ color: col.color }}>
             {col.label} ({groups[col.value].length})
           </p>
-          <ul className="space-y-2">
-            {groups[col.value].length === 0 && <li className="text-xs text-muted-foreground">—</li>}
-            {groups[col.value].map((v) => (
-              <VendorCard key={v.name} intakeId={intakeId} vendor={v} />
-            ))}
-          </ul>
+          {col.value === "SUPPLIES_ONLY" ? (
+            <SuppliesOnlyColumn intakeId={intakeId} vendors={groups[col.value]} />
+          ) : (
+            <ul className="space-y-2">
+              {groups[col.value].length === 0 && <li className="text-xs text-muted-foreground">—</li>}
+              {groups[col.value].map((v) => (
+                <VendorCard key={v.name} intakeId={intakeId} vendor={v} />
+              ))}
+            </ul>
+          )}
         </div>
       ))}
     </div>
+  );
+}
+
+/**
+ * Η στήλη «απλώς προμηθεύει» συχνά γεμίζει δεκάδες τεχνολογικά ονόματα από
+ * μια τεχνική πρόταση (Next.js, TypeScript, ...) — όλα σωστά ταξινομημένα
+ * και νομικά αδρανή, γι' αυτό ξεκινούν συμπτυγμένα σε μια γραμμή ονομάτων
+ * αντί να πνίγουν τις στήλες που χρειάζονται πραγματικά απόφαση.
+ */
+function SuppliesOnlyColumn({ intakeId, vendors }: { intakeId: string; vendors: Vendor[] }) {
+  const [expanded, setExpanded] = useState(false);
+
+  if (vendors.length === 0) {
+    return <p className="text-xs text-muted-foreground">—</p>;
+  }
+
+  if (!expanded) {
+    return (
+      <div className="space-y-1.5">
+        <p className="text-xs text-muted-foreground">{vendors.map((v) => v.name).join(", ")}</p>
+        <Button type="button" size="sm" variant="outline" onClick={() => setExpanded(true)}>
+          Εμφάνιση
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <ul className="space-y-2">
+      {vendors.map((v) => (
+        <VendorCard key={v.name} intakeId={intakeId} vendor={v} />
+      ))}
+    </ul>
   );
 }
 
