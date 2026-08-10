@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { deepseekChat } from "@/lib/deepseek";
 import type { ComplianceProfile } from "@/lib/intake/compliance-profile";
 import type { Remedy } from "./types";
+import { inferPolicyType } from "./policy-type";
 
 /**
  * `CREATE_POLICY`: το `gap.policyType` λέει ποια πολιτική λείπει. Το
@@ -75,14 +76,20 @@ async function generatePolicyContent(typeName: string, profile: ComplianceProfil
 }
 
 export const createPolicy: Remedy = async (gap, ctx) => {
-  if (!gap.policyType) {
-    return { status: "SKIPPED", reason: "Το κενό δεν προσδιορίζει τύπο πολιτικής." };
+  // Το μοντέλο συχνά παραλείπει το policyType — είναι ένα πεδίο μέσα σε μεγάλη
+  // δομή JSON. Το συμπεραίνουμε από το κείμενο του κενού, που πάντα λέει ποια
+  // πολιτική λείπει. Η τιμή του μοντέλου, όταν υπάρχει, υπερισχύει.
+  const policyType =
+    gap.policyType ?? inferPolicyType(`${gap.title} ${gap.description}`);
+
+  if (!policyType) {
+    return { status: "SKIPPED", reason: "Δεν προκύπτει ποια πολιτική λείπει." };
   }
 
-  const typeName = POLICY_LABELS[gap.policyType] ?? gap.policyType;
+  const typeName = POLICY_LABELS[policyType] ?? policyType;
 
   const existing = await prisma.policyDocument.findFirst({
-    where: { type: gap.policyType, status: "ACTIVE" },
+    where: { type: policyType, status: "ACTIVE" },
     select: { id: true },
   });
   if (existing) {
@@ -94,7 +101,7 @@ export const createPolicy: Remedy = async (gap, ctx) => {
   const doc = await prisma.policyDocument.create({
     data: {
       title: typeName,
-      type: gap.policyType,
+      type: policyType,
       version: "1.0",
       content,
       status: "DRAFT",
