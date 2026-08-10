@@ -9,6 +9,7 @@ import {
   MdLibraryBooks, MdHandshake, MdDeviceHub, MdMenu, MdClose,
   MdChevronLeft, MdChevronRight, MdExpandMore, MdExpandLess,
   MdVpnKey, MdAssignment, MdMenuBook, MdGavel, MdHowToReg, MdDraw,
+  MdFindInPage,
 } from "react-icons/md";
 import { LicenseModal } from "@/components/modules/license-modal";
 import { cn } from "@/lib/utils";
@@ -25,6 +26,7 @@ const navGroups: NavGroup[] = [
       { label: "Πίνακας Ελέγχου", href: "/dashboard", icon: MdDashboard },
       { label: "Αξιολόγηση GDPR", href: "/assessment", icon: MdFactCheck },
       { label: "DPIA & DPA", href: "/dpia", icon: MdDescription },
+      { label: "Πρόσληψη Συμβάσεων", href: "/intake", icon: MdFindInPage },
       { label: "Δικαίωμα Λήθης", href: "/erasure", icon: MdPersonOff },
       { label: "Ροές Δεδομένων", href: "/mapper", icon: MdHub },
       { label: "Αναφορές", href: "/reports", icon: MdBarChart },
