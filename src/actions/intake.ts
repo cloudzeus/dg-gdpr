@@ -309,35 +309,11 @@ export async function commitIntake(intakeId: string) {
       },
     });
 
-    // Ο ρόλος μας ↔ ρόλος αντισυμβαλλομένου → DpaContract ανά έγκυρο ζεύγος
-    for (const ours of parties.filter((p) => p.side !== "EXTERNAL")) {
-      for (const theirs of external) {
-        const dpaRole = toDpaRole(
-          ours.confirmedRole as PartyRoleValue,
-          theirs.confirmedRole as PartyRoleValue
-        );
-        if (!dpaRole) continue;
-
-        const weAreController = dpaRole === "COMPANY_AS_PROCESSOR";
-        await tx.dpaContract.create({
-          data: {
-            projectId: project.id,
-            userId,
-            companyId: theirs.companyId,
-            roleInDpa: dpaRole as never,
-            title: `DPA — ${ours.extractedName} / ${theirs.extractedName}`,
-            controllerName: weAreController ? ours.extractedName : theirs.extractedName,
-            controllerVat: weAreController ? ours.extractedVat : theirs.extractedVat,
-            processorName: weAreController ? theirs.extractedName : ours.extractedName,
-            processorVat: weAreController ? theirs.extractedVat : ours.extractedVat,
-            dataCategories: ((intake.extraction as { dataCategories?: string[] } | null)?.dataCategories ?? []) as never,
-            purposes: [] as never,
-            retentionPeriod: "Προς συμπλήρωση",
-            status: "PENDING",
-          },
-        });
-      }
-    }
+    // Οι συμβάσεις επεξεργασίας ΔΕΝ δημιουργούνται εδώ. Παλιότερα φτιαχνόταν
+    // μια σκελετώδης εγγραφή με «Προς συμπλήρωση» παντού· τώρα το Στάδιο 2
+    // παράγει την πραγματική, με κατηγορίες δεδομένων, υποεκτελούντες και
+    // αρχείο Word, αμέσως μετά από αυτή τη συναλλαγή. Δύο μηχανισμοί θα
+    // έφτιαχναν δύο εγγραφές για το ίδιο ζεύγος.
 
     await tx.complianceIntake.update({
       where: { id: intakeId },
