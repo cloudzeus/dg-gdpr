@@ -6,9 +6,12 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Modal } from "@/components/ui/modal";
 import { Loader2, Trash2, AlertTriangle, Users } from "lucide-react";
+import { MdSearch } from "react-icons/md";
 import { setPartyRole } from "@/actions/intake";
-import { addPartyManually, removeParty, setVendorTriage } from "@/actions/intake-ui";
+import { addPartyManually, removeParty, setVendorTriage, createCompanyForIntake } from "@/actions/intake-ui";
 import type { getIntakeDetail } from "@/actions/intake-ui";
 import type { listCompanies } from "@/actions/companies";
 import type { Extraction } from "@/lib/intake/schemas";
@@ -45,6 +48,20 @@ const MATCH_METHOD_LABEL: Record<string, string> = {
   NONE: "δεν ταίριαξε",
 };
 
+const RELATIONSHIP_OPTIONS: { value: string; label: string }[] = [
+  { value: "CLIENT", label: "Πελάτης" },
+  { value: "SUPPLIER", label: "Προμηθευτής" },
+  { value: "PARTNER", label: "Συνεργάτης" },
+  { value: "SUBSIDIARY", label: "Θυγατρική" },
+];
+
+/** Προεπιλεγμένη ταξινόμηση ανάλογα με την πλευρά — αντισυμβαλλόμενος → πελάτης, δική μας ομάδα → θυγατρική. */
+function defaultRelationshipsFor(side: PartySideValue): string[] {
+  if (side === "OWN_GROUP") return ["SUBSIDIARY"];
+  if (side === "EXTERNAL") return ["CLIENT"];
+  return [];
+}
+
 const TRIAGE_COLUMNS: { value: Triage; label: string; color: string }[] = [
   { value: "PROCESSES_DATA", label: "Επεξεργάζεται δεδομένα", color: "#a4262c" },
   { value: "SUPPLIES_ONLY", label: "Απλώς προμηθεύει", color: "#107c10" },
@@ -60,6 +77,7 @@ export function PartiesClient({
   orgName,
   motherMatchId,
   motherMatchName,
+  isAdmin,
 }: {
   intake: Intake;
   extraction: Extraction;
@@ -69,6 +87,7 @@ export function PartiesClient({
   orgName: string | null;
   motherMatchId: string | null;
   motherMatchName: string | null;
+  isAdmin: boolean;
 }) {
   const hasExternal = intake.parties.some((p) => p.side === "EXTERNAL");
   const hasOwn = intake.parties.some((p) => p.side !== "EXTERNAL");
@@ -94,7 +113,7 @@ export function PartiesClient({
           ) : (
             <ul className="space-y-2.5">
               {intake.parties.map((p) => (
-                <PartyRow key={p.id} party={p} />
+                <PartyRow key={p.id} party={p} intakeId={intake.id} isAdmin={isAdmin} />
               ))}
             </ul>
           )}
@@ -122,6 +141,8 @@ export function PartiesClient({
                 fixedSide="EXTERNAL"
                 defaultCompanyId={recipientMatchId}
                 submitLabel="Προσθήκη ως αντισυμβαλλόμενος"
+                isAdmin={isAdmin}
+                prefillName={extraction.recipientHint}
               />
             )}
 
@@ -142,6 +163,7 @@ export function PartiesClient({
                   defaultCompanyId={motherMatchId}
                   defaultSide="OWN_MOTHER"
                   submitLabel="Προσθήκη ως δική μας εταιρία"
+                  isAdmin={isAdmin}
                 />
               ) : (
                 <div
@@ -175,6 +197,7 @@ export function PartiesClient({
                       defaultCompanyId={null}
                       submitLabel="Προσθήκη ως θυγατρική εταιρία"
                       bare
+                      isAdmin={isAdmin}
                     />
                   )}
                 </div>
@@ -198,11 +221,12 @@ export function PartiesClient({
   );
 }
 
-function PartyRow({ party }: { party: Party }) {
+function PartyRow({ party, intakeId, isAdmin }: { party: Party; intakeId: string; isAdmin: boolean }) {
   const [role, setRole] = useState<PartyRoleValue | "">((party.confirmedRole as PartyRoleValue | null) ?? "");
   const [side, setSide] = useState<PartySideValue>(party.side as PartySideValue);
   const [pending, startTransition] = useTransition();
   const [deleting, startDeleting] = useTransition();
+  const [showCreate, setShowCreate] = useState(false);
 
   function commit(nextRole: PartyRoleValue | "", nextSide: PartySideValue) {
     if (!nextRole) return; // χωρίς επιλεγμένο ρόλο δεν στέλνουμε τίποτα στον server
@@ -292,6 +316,35 @@ function PartyRow({ party }: { party: Party }) {
           ))}
         </div>
       )}
+
+      {party.companyId === null && (
+        <div className="pt-1">
+          {isAdmin ? (
+            <Button type="button" size="sm" variant="outline" onClick={() => setShowCreate(true)}>
+              Δημιουργία εταιρίας
+            </Button>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Δεν ταίριαξε με εταιρία της βάσης· η δημιουργία γίνεται μόνο από διαχειριστή.{" "}
+              <Link href="/admin/companies" className="underline">
+                Διαχείριση εταιριών.
+              </Link>
+            </p>
+          )}
+          {showCreate && (
+            <CreateCompanyModal
+              intakeId={intakeId}
+              side={side}
+              defaultRelationships={defaultRelationshipsFor(side)}
+              prefillName={party.extractedName}
+              prefillVat={party.extractedVat}
+              prefillAddress={party.extractedAddress}
+              prefillEmail={party.extractedEmail}
+              onClose={() => setShowCreate(false)}
+            />
+          )}
+        </div>
+      )}
     </li>
   );
 }
@@ -307,6 +360,8 @@ function AnchorPanel({
   defaultSide,
   submitLabel,
   bare,
+  isAdmin,
+  prefillName,
 }: {
   intakeId: string;
   companies: Company[];
@@ -318,12 +373,15 @@ function AnchorPanel({
   defaultSide?: PartySideValue;
   submitLabel: string;
   bare?: boolean;
+  isAdmin: boolean;
+  prefillName?: string | null;
 }) {
   const [companyId, setCompanyId] = useState(defaultCompanyId ?? "");
   const [side, setSide] = useState<PartySideValue>(fixedSide ?? defaultSide ?? "EXTERNAL");
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
 
   function submit() {
     if (!companyId) return;
@@ -374,17 +432,43 @@ function AnchorPanel({
           {pending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
           {submitLabel}
         </Button>
+
+        {isAdmin && (
+          <Button type="button" size="sm" variant="outline" onClick={() => setShowCreate(true)}>
+            Δεν υπάρχει; Δημιουργία
+          </Button>
+        )}
       </div>
 
       {error && <p className="text-xs text-destructive">{error}</p>}
 
-      {!bare && (
+      {!isAdmin && (
         <p className="text-xs text-muted-foreground">
-          Δεν βρίσκεις την εταιρία;{" "}
+          Δεν βρίσκεις την εταιρία; Η δημιουργία γίνεται μόνο από διαχειριστή.{" "}
           <Link href="/admin/companies" className="underline">
-            Πρόσθεσέ τη εδώ.
+            Διαχείριση εταιριών.
           </Link>
         </p>
+      )}
+
+      {isAdmin && !bare && (
+        <p className="text-xs text-muted-foreground">
+          Ή{" "}
+          <Link href="/admin/companies" className="underline">
+            άνοιξε τη διαχείριση εταιριών
+          </Link>{" "}
+          για πλήρη φόρμα.
+        </p>
+      )}
+
+      {showCreate && (
+        <CreateCompanyModal
+          intakeId={intakeId}
+          side={side}
+          defaultRelationships={defaultRelationshipsFor(side)}
+          prefillName={prefillName}
+          onClose={() => setShowCreate(false)}
+        />
       )}
     </>
   );
@@ -407,6 +491,273 @@ function AnchorPanel({
         </div>
       </div>
       {body}
+    </div>
+  );
+}
+
+type VatData = {
+  afm: string;
+  name: string;
+  legalName: string;
+  taxOffice: string;
+  legalStatus: string;
+  addressLine1: string;
+  postalCode: string;
+  city: string;
+  country: string;
+  isActive: boolean;
+  registDate: string | null;
+  activities: string[];
+};
+
+/**
+ * Δημιουργεί εταιρία επί τόπου στον οδηγό, από ό,τι ήδη διάβασε ο αγωγός.
+ *
+ * Η αναζήτηση ΑΦΜ αναπαράγει ακριβώς τη λογική του `CompanyModal` στη
+ * διαχείριση εταιριών (ίδιο endpoint, ίδια αντιστοίχιση πεδίων) — δεν
+ * εφευρίσκουμε δεύτερο τρόπο συμπλήρωσης από τη ΓΓΔΕ.
+ */
+function CreateCompanyModal({
+  intakeId,
+  side,
+  defaultRelationships,
+  prefillName,
+  prefillVat,
+  prefillAddress,
+  prefillEmail,
+  onClose,
+}: {
+  intakeId: string;
+  side: PartySideValue;
+  defaultRelationships: string[];
+  prefillName?: string | null;
+  prefillVat?: string | null;
+  prefillAddress?: string | null;
+  prefillEmail?: string | null;
+  onClose: () => void;
+}) {
+  const [form, setForm] = useState({
+    name: prefillName ?? "",
+    legalName: "",
+    vatNumber: prefillVat ?? "",
+    taxOffice: "",
+    addressLine1: prefillAddress ?? "",
+    postalCode: "",
+    city: "",
+    contactEmail: prefillEmail ?? "",
+  });
+  const [relationships, setRelationships] = useState<string[]>(defaultRelationships);
+  const [vatInput, setVatInput] = useState(prefillVat ?? "");
+  const [vatLoading, setVatLoading] = useState(false);
+  const [vatError, setVatError] = useState<string | null>(null);
+  const [vatInfo, setVatInfo] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  const [formError, setFormError] = useState<string | null>(null);
+  const [result, setResult] = useState<{ companyId: string; created: boolean } | null>(null);
+
+  const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setForm((prev) => ({ ...prev, [key]: e.target.value }));
+
+  const toggleRel = (val: string) =>
+    setRelationships((prev) => (prev.includes(val) ? prev.filter((r) => r !== val) : [...prev, val]));
+
+  async function lookupVat() {
+    const afm = vatInput.trim();
+    if (!/^\d{9}$/.test(afm)) {
+      setVatError("Εισάγετε 9 ψηφία ΑΦΜ");
+      return;
+    }
+    setVatLoading(true);
+    setVatError(null);
+    setVatInfo(null);
+    try {
+      const res = await fetch("/api/admin/vat-lookup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ afm }),
+      });
+      const data: VatData & { error?: string } = await res.json();
+      if (!res.ok) {
+        setVatError(data.error ?? "Σφάλμα");
+        return;
+      }
+
+      setForm((prev) => ({
+        ...prev,
+        vatNumber: data.afm,
+        name: data.name || prev.name,
+        legalName: data.legalName || prev.legalName,
+        taxOffice: data.taxOffice || prev.taxOffice,
+        addressLine1: data.addressLine1 || prev.addressLine1,
+        postalCode: data.postalCode || prev.postalCode,
+        city: data.city || prev.city,
+      }));
+      setVatInput(data.afm);
+      setVatInfo(`${data.name} · ${data.legalStatus}${!data.isActive ? " · ⚠ ΑΝΕΝΕΡΓΟΣ ΑΦΜ" : ""}`);
+    } catch (e) {
+      setVatError(e instanceof Error ? e.message : "Σφάλμα");
+    } finally {
+      setVatLoading(false);
+    }
+  }
+
+  function submit() {
+    if (!form.name.trim()) {
+      setFormError("Η επωνυμία είναι υποχρεωτική");
+      return;
+    }
+    setFormError(null);
+    startTransition(async () => {
+      try {
+        const res = await createCompanyForIntake(
+          intakeId,
+          {
+            name: form.name,
+            legalName: form.legalName || null,
+            vatNumber: form.vatNumber || null,
+            taxOffice: form.taxOffice || null,
+            addressLine1: form.addressLine1 || null,
+            postalCode: form.postalCode || null,
+            city: form.city || null,
+            contactEmail: form.contactEmail || null,
+          },
+          relationships,
+          side
+        );
+        setResult(res);
+      } catch (e) {
+        setFormError(e instanceof Error ? e.message : "Σφάλμα");
+      }
+    });
+  }
+
+  if (result) {
+    return (
+      <Modal open onClose={onClose} title="Δημιουργία εταιρίας" size="md">
+        <div className="space-y-4">
+          <p className="text-sm font-medium" style={{ color: "#107c10" }}>
+            {result.created
+              ? "Η εταιρία δημιουργήθηκε και προστέθηκε ως μέρος."
+              : "Η εταιρία υπήρχε ήδη στη βάση με αυτό το ΑΦΜ — προστέθηκε ως μέρος, όχι διπλότυπο."}
+          </p>
+          <div className="flex justify-end">
+            <Button type="button" onClick={onClose}>
+              Κλείσιμο
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    );
+  }
+
+  return (
+    <Modal open onClose={onClose} title="Δημιουργία εταιρίας" size="lg">
+      <div className="space-y-3">
+        {/* Αναζήτηση ΑΦΜ — ίδιο endpoint με τη διαχείριση εταιριών */}
+        <div className="rounded-sm p-3 space-y-2" style={{ background: "rgba(0,120,212,0.05)", border: "1px solid rgba(0,120,212,0.18)" }}>
+          <p className="text-xs font-semibold" style={{ color: "#0078d4" }}>
+            Αυτόματη συμπλήρωση από ΑΦΜ (ΓΓΔΕ)
+          </p>
+          <div className="flex gap-2">
+            <Input
+              value={vatInput}
+              onChange={(e) => setVatInput(e.target.value.replace(/\D/g, "").slice(0, 9))}
+              placeholder="9-ψήφιο ΑΦΜ"
+              maxLength={9}
+              className="w-40 font-mono"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  lookupVat();
+                }
+              }}
+            />
+            <Button
+              type="button"
+              onClick={lookupVat}
+              disabled={vatLoading || vatInput.length !== 9}
+              style={{ background: "#0078d4", color: "white", minWidth: 120 }}
+            >
+              {vatLoading ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <>
+                  <MdSearch size={15} className="mr-1" />
+                  Αναζήτηση
+                </>
+              )}
+            </Button>
+          </div>
+          {vatError && <p className="text-xs text-destructive">{vatError}</p>}
+          {vatInfo && (
+            <p className="text-xs font-medium" style={{ color: "#107c10" }}>
+              ✓ {vatInfo}
+            </p>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Επωνυμία / Εμπορικό Τίτλο *">
+            <Input value={form.name} onChange={set("name")} required autoFocus />
+          </Field>
+          <Field label="Πλήρης Νομική Επωνυμία">
+            <Input value={form.legalName} onChange={set("legalName")} />
+          </Field>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="ΑΦΜ">
+            <Input value={form.vatNumber} onChange={set("vatNumber")} />
+          </Field>
+          <Field label="ΔΟΥ">
+            <Input value={form.taxOffice} onChange={set("taxOffice")} />
+          </Field>
+        </div>
+        <Field label="Σχέση (πολλαπλή επιλογή)">
+          <div className="flex gap-3 flex-wrap py-1">
+            {RELATIONSHIP_OPTIONS.map((r) => (
+              <label key={r.value} className="flex items-center gap-1.5 text-sm cursor-pointer">
+                <input type="checkbox" checked={relationships.includes(r.value)} onChange={() => toggleRel(r.value)} />
+                {r.label}
+              </label>
+            ))}
+          </div>
+        </Field>
+        <Field label="Διεύθυνση">
+          <Input value={form.addressLine1} onChange={set("addressLine1")} />
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Πόλη">
+            <Input value={form.city} onChange={set("city")} />
+          </Field>
+          <Field label="ΤΚ">
+            <Input value={form.postalCode} onChange={set("postalCode")} />
+          </Field>
+        </div>
+        <Field label="Email επικοινωνίας">
+          <Input type="email" value={form.contactEmail} onChange={set("contactEmail")} />
+        </Field>
+
+        {formError && <p className="text-sm text-destructive">{formError}</p>}
+
+        <div className="flex justify-end gap-2 pt-2">
+          <Button type="button" variant="outline" onClick={onClose}>
+            Ακύρωση
+          </Button>
+          <Button type="button" onClick={submit} disabled={pending} className="gap-1.5">
+            {pending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            Δημιουργία
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="space-y-1">
+      <label className="text-xs font-medium text-muted-foreground">{label}</label>
+      {children}
     </div>
   );
 }

@@ -2,6 +2,7 @@
 import { prisma } from "@/lib/prisma";
 import { listCompanies } from "@/actions/companies";
 import { normalizeCompanyName } from "@/lib/intake/company-match";
+import { getAdminUser } from "@/lib/current-user";
 import { PartiesClient } from "./parties-client";
 import type { getIntakeDetail } from "@/actions/intake-ui";
 import type { Extraction } from "@/lib/intake/schemas";
@@ -35,9 +36,10 @@ function findResemblingCompany(companies: Company[], hint: string | null | undef
 
 /** Βήμα 4: η οθόνη αγκύρωσης — μέρη, ρόλοι, ο αντισυμβαλλόμενος και οι προμηθευτές. */
 export async function StepParties({ intake, extraction }: { intake: Intake; extraction: Extraction }) {
-  const [companies, org] = await Promise.all([
+  const [companies, org, adminUser] = await Promise.all([
     listCompanies(),
     prisma.organization.findFirst({ orderBy: { createdAt: "asc" } }),
+    getAdminUser(),
   ]);
 
   const subsidiaries = companies.filter(
@@ -57,6 +59,7 @@ export async function StepParties({ intake, extraction }: { intake: Intake; extr
       orgName={org?.name ?? null}
       motherMatchId={motherMatch?.id ?? null}
       motherMatchName={motherMatch?.name ?? null}
+      isAdmin={!!adminUser}
     />
   );
 }

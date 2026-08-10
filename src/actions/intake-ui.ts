@@ -2,10 +2,11 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { requireUserId } from "@/lib/current-user";
+import { requireUserId, requireAdmin } from "@/lib/current-user";
 import { logAction } from "@/lib/action-logger";
 import { revalidatePath } from "next/cache";
 import { ExtractionSchema, type Extraction } from "@/lib/intake/schemas";
+import { normalizeVat, isValidGreekVat } from "@/lib/intake/vat";
 
 type Triage = "PROCESSES_DATA" | "SUPPLIES_ONLY" | "UNCLEAR";
 
@@ -86,6 +87,91 @@ export async function addPartyManually(
     details: { company: company.name, side, source: "manual" },
   });
   revalidatePath(`/intake/${intakeId}`);
+}
+
+/**
+ * Δημιουργεί εταιρία από τα στοιχεία που εξήγαγε ο αγωγός και την προσθέτει
+ * αμέσως ως μέρος.
+ *
+ * Ο χρήστης έχει ήδη μπροστά του το έγγραφο· το να σταλεί στη διαχείριση
+ * εταιριών για να ξαναπληκτρολογήσει όσα μόλις διαβάστηκαν είναι σπατάλη και
+ * πηγή λαθών. Η ταξινόμηση (πελάτης, προμηθευτής, συνεργάτης) κρατά την
+ * εταιρία χρήσιμη και για τις επόμενες συνεργασίες.
+ */
+export async function createCompanyForIntake(
+  intakeId: string,
+  input: {
+    name: string;
+    legalName?: string | null;
+    vatNumber?: string | null;
+    taxOffice?: string | null;
+    addressLine1?: string | null;
+    postalCode?: string | null;
+    city?: string | null;
+    contactEmail?: string | null;
+  },
+  relationships: string[],
+  side: "OWN_MOTHER" | "OWN_GROUP" | "EXTERNAL"
+): Promise<{ companyId: string; created: boolean }> {
+  await requireAdmin();
+
+  const name = input.name?.trim();
+  if (!name) throw new Error("Απαιτείται επωνυμία εταιρίας");
+
+  // Ένα ΑΦΜ που δεν περνάει το ψηφίο ελέγχου γίνεται λάθος κλειδί
+  // αντιστοίχισης για πάντα — καλύτερα να απορριφθεί εδώ παρά να αποθηκευτεί.
+  const rawVat = input.vatNumber?.trim();
+  const normalizedVat = normalizeVat(rawVat);
+  if (rawVat && !normalizedVat) {
+    throw new Error(`Το ΑΦΜ «${rawVat}» δεν έχει έγκυρη μορφή`);
+  }
+  if (normalizedVat && !isValidGreekVat(normalizedVat)) {
+    throw new Error(`Το ΑΦΜ «${normalizedVat}» δεν είναι έγκυρο — ελέγξτε το ψηφίο ελέγχου`);
+  }
+
+  let companyId: string;
+  let created: boolean;
+
+  const existing = normalizedVat
+    ? await prisma.company.findUnique({ where: { vatNumber: normalizedVat } })
+    : null;
+
+  if (existing) {
+    companyId = existing.id;
+    created = false;
+  } else {
+    const company = await prisma.company.create({
+      data: {
+        name,
+        legalName: input.legalName || null,
+        vatNumber: normalizedVat,
+        taxOffice: input.taxOffice || null,
+        addressLine1: input.addressLine1 || null,
+        postalCode: input.postalCode || null,
+        city: input.city || null,
+        contactEmail: input.contactEmail || null,
+        relationships: relationships as never,
+      },
+    });
+    companyId = company.id;
+    created = true;
+
+    await logAction({
+      action: "CREATE",
+      entity: "Company",
+      entityId: company.id,
+      details: { source: "intake", intakeId, relationships },
+    });
+  }
+
+  // Η προσθήκη ως μέρος περνάει από την ίδια λογική με την επιλογή υπάρχουσας
+  // εταιρίας — δεν εφευρίσκουμε δεύτερο δρόμο δημιουργίας IntakeParty.
+  await addPartyManually(intakeId, companyId, side);
+
+  revalidatePath(`/intake/${intakeId}`);
+  revalidatePath("/admin/companies");
+
+  return { companyId, created };
 }
 
 /** Διαγράφει μέρος που μπήκε κατά λάθος — π.χ. μάρκα που πέρασε ως εταιρία. */
