@@ -60,6 +60,18 @@ const STATUS_LABEL: Record<string, { text: string; variant: "warning" | "default
 const AI_REMEDY_TYPES = new Set(["CREATE_DPIA", "CREATE_POLICY"]);
 const DPA_FORM_TYPES = new Set(["CREATE_DPA", "CREATE_CONTRACT_CLAUSES"]);
 
+// Οι τρεις μορφές του άρθρου 26/28 χρειάζονται πραγματικό `projectId` για να
+// συνδεθεί το `DpaContract` (το `CREATE_CONTRACT_CLAUSES` δεν το χρειάζεται
+// τεχνικά, αλλά αντιμετωπίζεται ενιαία με τα άλλα δύο — ο χρήστης μπορεί να
+// εναλλάσσει τη μορφή μέχρι την τελευταία στιγμή). Στο βήμα 5 δεν υπάρχει
+// ακόμα έργο· αυτά τα κενά θα καλυφθούν αυτόματα αμέσως μετά το commit
+// (βλ. src/actions/intake.ts commitIntake → executeAllRemedies).
+const DEFERRED_UNTIL_PROJECT_TYPES = new Set(["CREATE_DPA", "CREATE_CONTRACT_CLAUSES", "CREATE_JCA"]);
+
+function isDeferredGap(gap: Gap, hasProject: boolean): boolean {
+  return !hasProject && !gap.createdEntityId && DEFERRED_UNTIL_PROJECT_TYPES.has(gap.remedyType as string);
+}
+
 function formatDuration(totalSeconds: number): string {
   if (totalSeconds < 60) return `${totalSeconds} δευτερόλεπτα`;
   const minutes = Math.ceil(totalSeconds / 60);
@@ -87,6 +99,8 @@ export function StepGaps({ intake }: { intake: Intake }) {
   const [runError, setRunError] = useState<string | null>(null);
   const [results, setResults] = useState<Record<string, RemedyResult>>({});
 
+  const hasProject = !!intake.projectId;
+
   const sorted = [...intake.gaps].sort(
     (a, b) => (SEVERITY_ORDER[a.severity] ?? 9) - (SEVERITY_ORDER[b.severity] ?? 9)
   );
@@ -105,7 +119,13 @@ export function StepGaps({ intake }: { intake: Intake }) {
     setElapsed(0);
     setRunningAll(true);
     try {
-      const res = await executeAllRemedies(intake.id);
+      // Τα κενά DPA/JCA/ρητρών που περιμένουν έργο ΔΕΝ στέλνονται καν στην
+      // εκτέλεση — θα καλυφθούν αυτόματα στο commit. Το πλήθος που βλέπει ο
+      // χρήστης στο panel πρέπει να ταιριάζει με αυτό που πράγματι τρέχει.
+      const coverableIds = sorted
+        .filter((g) => !g.createdEntityId && !!g.remedyType && !isDeferredGap(g, hasProject))
+        .map((g) => g.id);
+      const res = await executeAllRemedies(intake.id, coverableIds);
       setResults((prev) => ({ ...prev, ...res }));
       router.refresh();
     } catch (e) {
@@ -126,10 +146,17 @@ export function StepGaps({ intake }: { intake: Intake }) {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <CoverAllPanel gaps={sorted} running={runningAll} elapsed={elapsed} error={runError} onRun={runAll} />
+        <CoverAllPanel
+          gaps={sorted}
+          hasProject={hasProject}
+          running={runningAll}
+          elapsed={elapsed}
+          error={runError}
+          onRun={runAll}
+        />
         <ul className="space-y-3 mt-3">
           {sorted.map((g) => (
-            <GapRow key={g.id} gap={g} result={results[g.id]} locked={runningAll} />
+            <GapRow key={g.id} gap={g} result={results[g.id]} locked={runningAll} hasProject={hasProject} />
           ))}
         </ul>
       </CardContent>
@@ -139,24 +166,32 @@ export function StepGaps({ intake }: { intake: Intake }) {
 
 function CoverAllPanel({
   gaps,
+  hasProject,
   running,
   elapsed,
   error,
   onRun,
 }: {
   gaps: Gap[];
+  hasProject: boolean;
   running: boolean;
   elapsed: number;
   error: string | null;
   onRun: () => void;
 }) {
-  const remaining = gaps.filter((g) => !g.createdEntityId && !!g.remedyType);
-  const aiCount = remaining.filter((g) => AI_REMEDY_TYPES.has(g.remedyType as string)).length;
+  const pending = gaps.filter((g) => !g.createdEntityId && !!g.remedyType);
+  const deferred = pending.filter((g) => isDeferredGap(g, hasProject));
+  const coverable = pending.filter((g) => !isDeferredGap(g, hasProject));
+  const aiCount = coverable.filter((g) => AI_REMEDY_TYPES.has(g.remedyType as string)).length;
+  const deferredNote =
+    deferred.length > 0
+      ? `${deferred.length} ${deferred.length === 1 ? "κενό DPA/JCA θα δημιουργηθεί" : "κενά DPA/JCA θα δημιουργηθούν"} αυτόματα μόλις δημιουργηθεί το έργο (βήμα 6).`
+      : null;
 
-  if (remaining.length === 0) {
+  if (coverable.length === 0) {
     return (
       <p className="text-xs text-muted-foreground">
-        Δεν εκκρεμούν κενά με προτεινόμενη κάλυψη.
+        {deferredNote ?? "Δεν εκκρεμούν κενά με προτεινόμενη κάλυψη."}
       </p>
     );
   }
@@ -171,11 +206,12 @@ function CoverAllPanel({
             {aiCount > 0
               ? ` Τα ${aiCount} κενά που χρησιμοποιούν AI (DPIA, πολιτικές) θέλουν 10–30 δευτ. το καθένα, οπότε περιμένετε έως ${formatDuration(aiCount * 30)}.`
               : " Τα υπόλοιπα κενά δεν χρησιμοποιούν AI, οπότε θα ολοκληρωθεί γρήγορα."}
+            {deferredNote ? ` ${deferredNote}` : ""}
           </p>
         </div>
         <Button type="button" size="sm" disabled={running} onClick={onRun} className="gap-1.5 shrink-0">
           {running && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-          {running ? `Εκτελείται… ${elapsed}δ` : "Κάλυψη όλων"}
+          {running ? `Εκτελείται… ${elapsed}δ` : `Κάλυψη όλων (${coverable.length})`}
         </Button>
       </div>
       {error && <p className="text-xs text-destructive">{error}</p>}
@@ -312,7 +348,17 @@ function RemedyResultPanel({ result, clauseText }: { result: RemedyResult; claus
   return <p className="text-xs text-muted-foreground italic">{result.reason}</p>;
 }
 
-function GapRow({ gap, result, locked }: { gap: Gap; result?: RemedyResult; locked: boolean }) {
+function GapRow({
+  gap,
+  result,
+  locked,
+  hasProject,
+}: {
+  gap: Gap;
+  result?: RemedyResult;
+  locked: boolean;
+  hasProject: boolean;
+}) {
   const [pending, startTransition] = useTransition();
   const [dismissing, setDismissing] = useState(false);
   const [reason, setReason] = useState(gap.dismissReason ?? "");
@@ -322,6 +368,7 @@ function GapRow({ gap, result, locked }: { gap: Gap; result?: RemedyResult; lock
   const severity = SEVERITY_LABEL[gap.severity] ?? SEVERITY_LABEL.LOW;
   const status = STATUS_LABEL[gap.status] ?? STATUS_LABEL.OPEN;
   const clauseText = gap.remedyType === "CREATE_CONTRACT_CLAUSES" ? extractClauseText(gap.remedyPayload) : null;
+  const deferred = isDeferredGap(gap, hasProject);
 
   function setStatus(next: "DRAFTED" | "RESOLVED") {
     setError(null);
@@ -383,11 +430,19 @@ function GapRow({ gap, result, locked }: { gap: Gap; result?: RemedyResult; lock
 
       <FormChoice gap={gap} disabled={locked} />
 
-      {result && <RemedyResultPanel result={result} clauseText={clauseText} />}
-      {!result && clauseText && (
-        <div className="flex">
-          <CopyClausesButton text={clauseText} />
-        </div>
+      {deferred ? (
+        <p className="text-xs text-muted-foreground italic">
+          Θα δημιουργηθεί αυτόματα μόλις δημιουργηθεί το έργο (βήμα 6).
+        </p>
+      ) : (
+        <>
+          {result && <RemedyResultPanel result={result} clauseText={clauseText} />}
+          {!result && clauseText && (
+            <div className="flex">
+              <CopyClausesButton text={clauseText} />
+            </div>
+          )}
+        </>
       )}
 
       {gap.status === "DISMISSED" && gap.dismissReason && (

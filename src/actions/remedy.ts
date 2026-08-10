@@ -60,11 +60,22 @@ export async function executeGapRemedy(gapId: string): Promise<RemedyResult> {
   return result;
 }
 
-export async function executeAllRemedies(intakeId: string): Promise<Record<string, RemedyResult>> {
+/**
+ * `gapIds`, όταν δίνεται, περιορίζει την εκτέλεση σε συγκεκριμένα κενά —
+ * το βήμα 5 το χρησιμοποιεί για να ΜΗΝ επιχειρήσει καν κενά DPA/JCA/ρητρών
+ * όσο δεν υπάρχει `projectId` (θα καλυφθούν αυτόματα στο commit). Χωρίς
+ * όρισμα, τρέχουν όλα — όπως το χρησιμοποιεί το `commitIntake`.
+ */
+export async function executeAllRemedies(
+  intakeId: string,
+  gapIds?: string[]
+): Promise<Record<string, RemedyResult>> {
   const userId = await requireUserId();
   // Το context χτίζεται ΜΙΑ φορά για όλο το intake — όχι ανά κενό.
   const ctx = await buildRemedyContext(intakeId, userId);
-  const gaps = await prisma.intakeGap.findMany({ where: { intakeId } });
+  const gaps = await prisma.intakeGap.findMany({
+    where: gapIds ? { intakeId, id: { in: gapIds } } : { intakeId },
+  });
 
   const results: Record<string, RemedyResult> = {};
 

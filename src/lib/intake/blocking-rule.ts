@@ -8,6 +8,8 @@ export interface GapState {
   severity: GapSeverityValue;
   status: GapStatusValue;
   dismissReason: string | null;
+  /** Τύπος αυτόματης κάλυψης, αν υπάρχει — βλ. `src/lib/remedy/`. */
+  remedyType: string | null;
 }
 
 export interface PartyState {
@@ -68,8 +70,13 @@ export function canCommit(parties: PartyState[], gaps: GapState[]): CommitVerdic
 
   for (const gap of gaps) {
     if (gap.severity !== "CRITICAL") continue;
-    if (gap.status === "OPEN") {
-      reasons.push("Υπάρχει κρίσιμο κενό συμμόρφωσης που δεν έχει αντιμετωπιστεί.");
+    // Ένα κρίσιμο κενό με προτεινόμενη κάλυψη δεν μπλοκάρει: το σύστημα
+    // πρόκειται να το κλείσει μόνο του (βλ. commitIntake → executeAllRemedies).
+    // Μπλοκάρει μόνο το κενό που ΚΑΝΕΝΑΣ δεν πρόκειται να καλύψει.
+    if (gap.status === "OPEN" && !gap.remedyType) {
+      reasons.push(
+        "Υπάρχει κρίσιμο κενό χωρίς προτεινόμενη κάλυψη — πρέπει να αντιμετωπιστεί ή να απορριφθεί με αιτιολογία."
+      );
     }
     if (gap.status === "DISMISSED" && !gap.dismissReason?.trim()) {
       reasons.push("Η απόρριψη κρίσιμου κενού απαιτεί γραπτή αιτιολογία.");

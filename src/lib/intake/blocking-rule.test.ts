@@ -10,6 +10,7 @@ const gap = (over: Partial<GapState> = {}): GapState => ({
   severity: "CRITICAL",
   status: "DRAFTED",
   dismissReason: null,
+  remedyType: null,
   ...over,
 });
 
@@ -26,10 +27,16 @@ describe("canCommit", () => {
     expect(canCommit(ok, [gap({ status: "RESOLVED" })]).allowed).toBe(true);
   });
 
-  it("μπλοκάρει κρίσιμο κενό σε OPEN", () => {
-    const r = canCommit(ok, [gap({ status: "OPEN" })]);
+  it("μπλοκάρει κρίσιμο κενό σε OPEN χωρίς προτεινόμενη κάλυψη", () => {
+    const r = canCommit(ok, [gap({ status: "OPEN", remedyType: null })]);
     expect(r.allowed).toBe(false);
     expect(r.reasons.join()).toMatch(/κρίσιμ/i);
+  });
+
+  it("επιτρέπει κρίσιμο κενό σε OPEN όταν έχει προτεινόμενη κάλυψη — το σύστημα θα το κλείσει μόνο του", () => {
+    const r = canCommit(ok, [gap({ status: "OPEN", remedyType: "CREATE_DPA" })]);
+    expect(r.allowed).toBe(true);
+    expect(r.reasons).toEqual([]);
   });
 
   it("μπλοκάρει DISMISSED χωρίς αιτιολογία", () => {

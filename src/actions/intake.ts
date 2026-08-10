@@ -11,6 +11,7 @@ import { buildComplianceProfile, getOwnGroupCandidates } from "@/lib/intake/comp
 import { matchParty, normalizeCompanyName } from "@/lib/intake/company-match";
 import { canCommit, type GapState, type PartyState } from "@/lib/intake/blocking-rule";
 import { toDpaRole, type PartyRoleValue } from "@/lib/intake/role-mapping";
+import { executeAllRemedies } from "@/actions/remedy";
 import type { ConfirmedParty } from "@/lib/intake/reasoning";
 import type { Extraction, Reasoning } from "@/lib/intake/schemas";
 
@@ -258,7 +259,10 @@ export async function checkCommit(intakeId: string) {
   await requireUserId();
   const [parties, gaps] = await Promise.all([
     prisma.intakeParty.findMany({ where: { intakeId }, select: { side: true, confirmedRole: true } }),
-    prisma.intakeGap.findMany({ where: { intakeId }, select: { severity: true, status: true, dismissReason: true } }),
+    prisma.intakeGap.findMany({
+      where: { intakeId },
+      select: { severity: true, status: true, dismissReason: true, remedyType: true },
+    }),
   ]);
   return canCommit(parties as PartyState[], gaps as GapState[]);
 }
@@ -350,6 +354,18 @@ export async function commitIntake(intakeId: string) {
     projectId,
     details: { parties: parties.length, gaps: gaps.length },
   });
+
+  // Εκτός συναλλαγής, ΜΕΤΑ που υπάρχει πραγματικό projectId: τα CREATE_DPA/
+  // CREATE_JCA κ.λπ. στο src/lib/remedy/dpa.ts επέστρεφαν πάντα SKIPPED στο
+  // βήμα 5 επειδή δεν υπήρχε έργο ακόμα — τώρα υπάρχει, οπότε τρέχουν.
+  // Το AI και το ανέβασμα στο Bunny δεν πρέπει ποτέ να κρατούν ανοιχτή
+  // συναλλαγή βάσης, και μια αποτυχία εδώ είναι κάτι για επανάληψη, όχι λόγος
+  // να ακυρωθεί το έργο που μόλις δημιουργήθηκε.
+  try {
+    await executeAllRemedies(intakeId);
+  } catch (e) {
+    console.error(`[commitIntake] Η αυτόματη κάλυψη κενών απέτυχε για το intake ${intakeId}:`, e);
+  }
 
   revalidatePath("/intake");
   revalidatePath(`/intake/${intakeId}`);
