@@ -71,6 +71,13 @@ describe("normalizeCompanyName", () => {
     expect(normalizeCompanyName("ΚΟΣΜΟΚΑΡ")).not.toBe(normalizeCompanyName("ΑΛΦΑ"));
   });
 
+  it("αφαιρεί κάθε μορφή παύλας, όχι μόνο το ενωτικό", () => {
+    // Τα μοντέλα επιστρέφουν συχνά το όνομα μαζί με τον διαχωριστή του prompt.
+    for (const dash of ["-", "—", "–", "‐"]) {
+      expect(normalizeCompanyName(`DGSOFT ΕΕ ${dash} `)).toBe(normalizeCompanyName("DGSOFT ΕΕ"));
+    }
+  });
+
   it("επιστρέφει κενό για άκυρη είσοδο", () => {
     expect(normalizeCompanyName(null)).toBe("");
     expect(normalizeCompanyName(undefined)).toBe("");

@@ -75,7 +75,10 @@ export function normalizeCompanyName(raw: string | null | undefined): string {
 
   s = s
     .replace(/\./g, "")
-    .replace(/[,·''""()\-_/\\]/g, " ")
+    // Κάθε μορφή παύλας, όχι μόνο το ενωτικό: τα μοντέλα επιστρέφουν συχνά το
+    // όνομα μαζί με τον διαχωριστή του prompt («DGSOFT ΕΕ —»), και τότε η
+    // αντιστοίχιση αποτυγχάνει σιωπηλά.
+    .replace(/[,·''""()\-‐-―_/\\]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 
