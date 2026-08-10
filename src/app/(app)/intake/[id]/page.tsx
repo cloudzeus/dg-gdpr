@@ -26,7 +26,7 @@ export default async function IntakeWizardPage({ params }: { params: Promise<{ i
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <Topbar userName={session?.user?.name} userRole={(session?.user as any)?.role} pageTitle={intake.title} />
+      <Topbar userName={session?.user?.name} userRole={(session?.user as { role?: string } | undefined)?.role} pageTitle={intake.title} />
       <main className="flex-1 overflow-y-auto p-6">
         <div className="max-w-4xl mx-auto space-y-6">
           <Stepper current={intake.stage} />

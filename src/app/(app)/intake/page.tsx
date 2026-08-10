@@ -25,7 +25,7 @@ export default async function IntakeListPage() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <Topbar userName={session?.user?.name} userRole={(session?.user as any)?.role} pageTitle="Πρόσληψη Συμβάσεων" />
+      <Topbar userName={session?.user?.name} userRole={(session?.user as { role?: string } | undefined)?.role} pageTitle="Πρόσληψη Συμβάσεων" />
       <main className="flex-1 overflow-y-auto p-6">
         <div className="max-w-4xl mx-auto space-y-4">
           <div className="flex items-center justify-between">
