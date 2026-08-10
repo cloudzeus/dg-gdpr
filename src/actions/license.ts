@@ -1,25 +1,23 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { requireUserId } from "@/lib/current-user";
 import { logAction } from "@/lib/action-logger";
 import { revalidatePath } from "next/cache";
 
 async function requireSuperAdmin() {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Μη εξουσιοδοτημένος");
+  const userId = await requireUserId();
   const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
+    where: { id: userId },
     select: { isSuperAdmin: true },
   });
   if (!user?.isSuperAdmin) throw new Error("Απαιτείται δικαίωμα Υπερδιαχειριστή");
-  return session.user.id;
+  return userId;
 }
 
 /** Any logged-in user may read the license (read-only display). */
 export async function getLicense() {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Μη εξουσιοδοτημένος");
+  await requireUserId();
   return prisma.license.findFirst({ orderBy: { createdAt: "asc" } });
 }
 

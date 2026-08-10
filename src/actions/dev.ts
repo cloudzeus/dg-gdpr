@@ -1,14 +1,13 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { requireUserId } from "@/lib/current-user";
 import { logAction } from "@/lib/action-logger";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 export async function createProject(formData: FormData) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Μη εξουσιοδοτημένος");
+  await requireUserId();
 
   const project = await prisma.project.create({
     data: {
@@ -25,8 +24,7 @@ export async function createProject(formData: FormData) {
 }
 
 export async function saveChecklist(projectId: string, formData: FormData) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Μη εξουσιοδοτημένος");
+  const userId = await requireUserId();
 
   const boolField = (name: string) => formData.get(name) === "on";
 
@@ -51,7 +49,7 @@ export async function saveChecklist(projectId: string, formData: FormData) {
   const trueCount = Object.values(fields).filter((v) => v === true).length;
   const score = Math.round((trueCount / 14) * 100);
 
-  const existing = await prisma.devChecklist.findFirst({ where: { projectId, userId: session.user.id } });
+  const existing = await prisma.devChecklist.findFirst({ where: { projectId, userId: userId } });
 
   if (existing) {
     await prisma.devChecklist.update({
@@ -61,7 +59,7 @@ export async function saveChecklist(projectId: string, formData: FormData) {
     await logAction({ action: "UPDATE", entity: "DevChecklist", entityId: existing.id, projectId });
   } else {
     const checklist = await prisma.devChecklist.create({
-      data: { ...fields, score, projectId, userId: session.user.id },
+      data: { ...fields, score, projectId, userId: userId },
     });
     await logAction({ action: "CREATE", entity: "DevChecklist", entityId: checklist.id, projectId });
   }
@@ -70,12 +68,11 @@ export async function saveChecklist(projectId: string, formData: FormData) {
 }
 
 export async function createDbAccessLog(formData: FormData) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Μη εξουσιοδοτημένος");
+  const userId = await requireUserId();
 
   const log = await prisma.dbAccessLog.create({
     data: {
-      userId: session.user.id,
+      userId: userId,
       projectId: formData.get("projectId") as string,
       developerName: formData.get("developerName") as string,
       clientDb: formData.get("clientDb") as string,

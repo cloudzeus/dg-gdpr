@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import { requireUserId } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
 import { Topbar } from "@/components/layout/topbar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -64,7 +65,10 @@ async function getDashboardData(userId: string) {
 
 export default async function DashboardPage() {
   const session = await auth();
-  const data = await getDashboardData(session!.user!.id!);
+  // Το πραγματικό User.id από τη βάση: παλιά tokens κρατούν Entra GUID,
+  // που ως userId δεν αντιστοιχεί σε καμία εγγραφή.
+  const userId = await requireUserId();
+  const data = await getDashboardData(userId);
 
   const grade = scoreToGrade(data.totalScore);
 

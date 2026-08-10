@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { requireUserId } from "@/lib/current-user";
 import { logAction } from "@/lib/action-logger";
 import { revalidatePath } from "next/cache";
 import { sendMail, trainingResultEmail } from "@/lib/mail";
@@ -10,8 +10,7 @@ export async function submitTrainingResult(
   moduleId: string,
   answers: Record<string, number>
 ) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Μη εξουσιοδοτημένος");
+  const userId = await requireUserId();
 
   const mod = await prisma.trainingModule.findUnique({
     where: { id: moduleId },
@@ -33,12 +32,12 @@ export async function submitTrainingResult(
   const passed = score >= mod.passingScore;
 
   const retryCount = await prisma.trainingResult.count({
-    where: { userId: session.user.id, moduleId },
+    where: { userId: userId, moduleId },
   });
 
   const result = await prisma.trainingResult.create({
     data: {
-      userId: session.user.id,
+      userId: userId,
       moduleId,
       score,
       passed,
@@ -51,7 +50,7 @@ export async function submitTrainingResult(
 
   // Send result email (fire-and-forget — don't block UX on failure)
   const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
+    where: { id: userId },
     select: { email: true, name: true },
   });
   if (user?.email) {
@@ -78,10 +77,9 @@ export async function submitTrainingResult(
 }
 
 export async function getMyTrainingResults() {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Μη εξουσιοδοτημένος");
+  const userId = await requireUserId();
   return prisma.trainingResult.findMany({
-    where: { userId: session.user.id },
+    where: { userId: userId },
     orderBy: { completedAt: "desc" },
     include: { module: { select: { id: true, title: true, passingScore: true } } },
   });

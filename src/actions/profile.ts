@@ -1,21 +1,20 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { auth } from "@/lib/auth";
+import { requireUserId } from "@/lib/current-user";
 import { logAction } from "@/lib/action-logger";
 import { revalidatePath } from "next/cache";
 import { uploadToBunny } from "@/lib/bunny";
 
 export async function updateProfile(formData: FormData) {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Μη εξουσιοδοτημένος");
+  const userId = await requireUserId();
 
   const name = formData.get("name") as string;
   const phone = formData.get("phone") as string;
   const address = formData.get("address") as string;
 
   await prisma.user.update({
-    where: { id: session.user.id },
+    where: { id: userId },
     data: {
       name: name || undefined,
       phone: phone || null,
@@ -23,13 +22,12 @@ export async function updateProfile(formData: FormData) {
     },
   });
 
-  await logAction({ action: "UPDATE", entity: "User", entityId: session.user.id });
+  await logAction({ action: "UPDATE", entity: "User", entityId: userId });
   revalidatePath("/settings");
 }
 
 export async function uploadAvatar(formData: FormData): Promise<{ image: string }> {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Μη εξουσιοδοτημένος");
+  const userId = await requireUserId();
 
   const file = formData.get("avatar") as File;
   if (!file || file.size === 0) throw new Error("Δεν επιλέχθηκε αρχείο");
@@ -40,16 +38,16 @@ export async function uploadAvatar(formData: FormData): Promise<{ image: string 
 
   const buffer = Buffer.from(await file.arrayBuffer());
   const ext = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
-  const filename = `${session.user.id}.${ext}`;
+  const filename = `${userId}.${ext}`;
 
   const imageUrl = await uploadToBunny(buffer, `avatars/${filename}`, file.type);
 
   await prisma.user.update({
-    where: { id: session.user.id },
+    where: { id: userId },
     data: { image: imageUrl },
   });
 
-  await logAction({ action: "UPDATE", entity: "User", entityId: session.user.id });
+  await logAction({ action: "UPDATE", entity: "User", entityId: userId });
   revalidatePath("/settings");
   revalidatePath("/dashboard");
 

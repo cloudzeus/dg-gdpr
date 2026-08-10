@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { requireUserId } from "@/lib/current-user";
 import { prisma } from "@/lib/prisma";
 import { deepseekJson } from "@/lib/deepseek";
 import { loc } from "@/lib/localized";
@@ -16,8 +16,7 @@ interface DpiaVerdict {
 // decide (via DeepSeek, Art. 35 GDPR) whether a DPIA is required. If yes, a linked
 // DpiaReport is created/updated in the existing DPIA table.
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const userId = await requireUserId();
 
   const { projectId } = await req.json();
   if (!projectId) return NextResponse.json({ error: "projectId is required" }, { status: 400 });
@@ -70,7 +69,7 @@ export async function POST(req: NextRequest) {
     const existing = await prisma.dpiaReport.findFirst({ where: { consentProjectId: project.id } });
     const data = {
       consentProjectId: project.id,
-      userId: session.user.id,
+      userId: userId,
       title,
       processingPurpose,
       necessityAssessed: true,
