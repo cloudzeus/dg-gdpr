@@ -84,6 +84,18 @@ describe("canCommit", () => {
     ).toBe(true);
   });
 
+  it("μπλοκάρει όταν όλα τα μέρη είναι δικά μας", () => {
+    const r = canCommit(
+      [
+        { side: "OWN_MOTHER", confirmedRole: "CONTROLLER" },
+        { side: "OWN_GROUP", confirmedRole: "PROCESSOR" },
+      ],
+      []
+    );
+    expect(r.allowed).toBe(false);
+    expect(r.reasons.join()).toMatch(/αντισυμβαλλόμεν/i);
+  });
+
   it("συγκεντρώνει όλους τους λόγους, δεν σταματά στον πρώτο", () => {
     const r = canCommit([{ side: "EXTERNAL", confirmedRole: null }], [gap({ status: "OPEN" })]);
     expect(r.reasons.length).toBeGreaterThanOrEqual(3);

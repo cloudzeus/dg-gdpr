@@ -33,6 +33,12 @@ export interface ExtractionSource {
   mimeType: string;
 }
 
+const DOCX_MIME =
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+/** Ανώτατο μέγεθος συνημμένων σε ένα αίτημα. Πέρα από αυτό στέλνεται μόνο κείμενο. */
+const MAX_INLINE_BYTES = 15 * 1024 * 1024;
+
 export interface ExtractionDeps {
   generate?: (opts: GeminiOptions) => Promise<string>;
 }
@@ -48,8 +54,18 @@ export async function extractContract(
   const generate = deps.generate ?? geminiGenerate;
 
   const parts: GeminiPart[] = [];
+  let inlineBudget = MAX_INLINE_BYTES;
+
   sources.forEach((s, i) => {
     parts.push({ text: `--- Έγγραφο ${i + 1} (κείμενο OCR) ---\n${s.text}` });
+
+    // Το DOCX έχει ήδη εξαχθεί σε κείμενο· τα bytes του δεν λένε τίποτα σε
+    // μοντέλο όρασης. Και πέρα από το όριο, το κείμενο μόνο του είναι
+    // προτιμότερο από ένα αίτημα που θα απορριφθεί ολόκληρο.
+    if (s.mimeType === DOCX_MIME) return;
+    if (s.buffer.length > inlineBudget) return;
+
+    inlineBudget -= s.buffer.length;
     parts.push({ inlineData: { mimeType: s.mimeType, data: s.buffer.toString("base64") } });
   });
 

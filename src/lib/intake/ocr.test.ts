@@ -58,11 +58,30 @@ describe("readDocument", () => {
 
   it("δεν κλιμακώνει όταν οι κλιμακώσεις έχουν εξαντληθεί", async () => {
     const generate = vi.fn().mockResolvedValue(JUNK);
-    const r = await readDocument(pdf, { generate, escalationsLeft: 0 });
+    const r = await readDocument(pdf, { generate, reserveEscalation: async () => false });
 
     expect(generate).toHaveBeenCalledTimes(1);
     expect(r.escalated).toBe(false);
     expect(r.model).toBe("lite");
+  });
+
+  it("δεν κλιμακώνει όταν η δέσμευση απορριφθεί", async () => {
+    const generate = vi.fn().mockResolvedValue(JUNK);
+    const reserveEscalation = vi.fn().mockResolvedValue(false);
+    const r = await readDocument(pdf, { generate, reserveEscalation });
+
+    expect(reserveEscalation).toHaveBeenCalledTimes(1);
+    expect(generate).toHaveBeenCalledTimes(1);
+    expect(r.escalated).toBe(false);
+    expect(r.model).toBe("lite");
+  });
+
+  it("δεν ζητά δέσμευση όταν η πρώτη ανάγνωση είναι καλή", async () => {
+    const generate = vi.fn().mockResolvedValue(GOOD_TEXT);
+    const reserveEscalation = vi.fn().mockResolvedValue(true);
+    await readDocument(pdf, { generate, reserveEscalation });
+
+    expect(reserveEscalation).not.toHaveBeenCalled();
   });
 
   it("στέλνει το αρχείο ως base64 inlineData", async () => {

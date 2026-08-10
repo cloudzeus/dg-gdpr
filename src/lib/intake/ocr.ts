@@ -56,7 +56,13 @@ export interface ReadResult {
 export interface ReadDeps {
   generate?: (opts: GeminiOptions) => Promise<string>;
   extractDocx?: (buffer: Buffer) => Promise<string>;
-  escalationsLeft?: number;
+  /**
+   * Ζητά άδεια για κλιμάκωση τη στιγμή που χρειάζεται, αντί να δεχθεί έναν
+   * αριθμό που είναι ήδη παλιός μόλις διαβαστεί. Ο καλών κατέχει τη βάση και
+   * απαντά ατομικά — τα έγγραφα διαβάζονται παράλληλα.
+   * Αν παραλειφθεί, η κλιμάκωση επιτρέπεται πάντα (χρήσιμο σε δοκιμές).
+   */
+  reserveEscalation?: () => Promise<boolean>;
   threshold?: number;
 }
 
@@ -75,7 +81,6 @@ export async function readDocument(
   const threshold =
     deps.threshold ??
     Number(process.env.INTAKE_OCR_QUALITY_THRESHOLD ?? DEFAULT_QUALITY_THRESHOLD);
-  const escalationsLeft = deps.escalationsLeft ?? Number.POSITIVE_INFINITY;
 
   // Το DOCX έχει ήδη κείμενο — το OCR θα ήταν σπατάλη και χειρότερο αποτέλεσμα.
   if (doc.mimeType === DOCX_MIME) {
@@ -96,7 +101,12 @@ export async function readDocument(
   const first = await generate({ model: liteModel(), system: OCR_SYSTEM, parts });
   const firstQuality = scoreOcrText(first, doc.pageCount);
 
-  if (!needsEscalation(firstQuality, threshold) || escalationsLeft < 1) {
+  if (!needsEscalation(firstQuality, threshold)) {
+    return { text: first, model: liteModel(), quality: firstQuality, escalated: false };
+  }
+
+  const mayEscalate = deps.reserveEscalation ? await deps.reserveEscalation() : true;
+  if (!mayEscalate) {
     return { text: first, model: liteModel(), quality: firstQuality, escalated: false };
   }
 

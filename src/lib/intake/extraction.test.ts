@@ -73,6 +73,32 @@ describe("extractContract", () => {
     expect(generate).toHaveBeenCalledTimes(2);
   });
 
+  it("δεν στέλνει bytes DOCX στο μοντέλο όρασης", async () => {
+    const generate = vi.fn().mockResolvedValue(VALID);
+    await extractContract(
+      [{
+        text: "ΣΥΜΒΑΣΗ από Word",
+        buffer: Buffer.from("docx-bytes"),
+        mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      }],
+      { generate }
+    );
+
+    const parts = generate.mock.calls[0][0].parts;
+    expect(parts.some((p: GeminiPart) => p.inlineData)).toBe(false);
+    expect(parts.some((p: GeminiPart) => p.text?.includes("ΣΥΜΒΑΣΗ από Word"))).toBe(true);
+  });
+
+  it("παραλείπει συνημμένα πέρα από το όριο μεγέθους, κρατά το κείμενο", async () => {
+    const generate = vi.fn().mockResolvedValue(VALID);
+    const huge = { text: "τεράστιο", buffer: Buffer.alloc(16 * 1024 * 1024), mimeType: "application/pdf" };
+    await extractContract([huge], { generate });
+
+    const parts = generate.mock.calls[0][0].parts;
+    expect(parts.some((p: GeminiPart) => p.inlineData)).toBe(false);
+    expect(parts.some((p: GeminiPart) => p.text?.includes("τεράστιο"))).toBe(true);
+  });
+
   it("πετά όταν δεν δοθεί κανένα έγγραφο", async () => {
     const generate = vi.fn();
     await expect(extractContract([], { generate })).rejects.toThrow(/έγγραφ/i);

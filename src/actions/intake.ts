@@ -83,6 +83,7 @@ export async function addIntakeDocument(intakeId: string, formData: FormData) {
 
 /** Άλλα intakes που περιέχουν ήδη το ίδιο αρχείο — προειδοποίηση, όχι εμπόδιο. */
 export async function findDuplicateDocuments(intakeId: string) {
+  await requireUserId();
   const docs = await prisma.intakeDocument.findMany({
     where: { intakeId },
     select: { fileHash: true, fileName: true },
@@ -187,6 +188,12 @@ export async function setPartyRole(partyId: string, role: PartyRoleValue, side: 
     where: { id: partyId },
     data: { confirmedRole: role as never, side: side as never },
   });
+  await logAction({
+    action: "UPDATE",
+    entity: "IntakeParty",
+    entityId: partyId,
+    details: { confirmedRole: role, side },
+  });
   revalidatePath(`/intake/${party.intakeId}`);
 }
 
@@ -199,11 +206,18 @@ export async function setGapStatus(gapId: string, status: string, dismissReason?
     where: { id: gapId },
     data: { status: status as never, dismissReason: dismissReason?.trim() || null },
   });
+  await logAction({
+    action: "UPDATE",
+    entity: "IntakeGap",
+    entityId: gapId,
+    details: { status, dismissReason: dismissReason?.trim() || null },
+  });
   revalidatePath(`/intake/${gap.intakeId}`);
 }
 
 /** Τι εμποδίζει το commit — για να το δείχνει το UI πριν πατηθεί το κουμπί. */
 export async function checkCommit(intakeId: string) {
+  await requireUserId();
   const [parties, gaps] = await Promise.all([
     prisma.intakeParty.findMany({ where: { intakeId }, select: { side: true, confirmedRole: true } }),
     prisma.intakeGap.findMany({ where: { intakeId }, select: { severity: true, status: true, dismissReason: true } }),
@@ -236,6 +250,14 @@ export async function commitIntake(intakeId: string) {
     RISK_BY_SEVERITY[openSeverities.find((s) => RISK_BY_SEVERITY[s]) ?? ""] ?? "MEDIUM";
 
   const projectId = await prisma.$transaction(async (tx) => {
+    // Ξαναδιαβάζουμε ΜΕΣΑ στη συναλλαγή: ανάμεσα στον έλεγχο και εδώ μπορεί
+    // να έχει ήδη γίνει commit από δεύτερο κλικ ή επανάληψη αιτήματος.
+    const fresh = await tx.complianceIntake.findUniqueOrThrow({
+      where: { id: intakeId },
+      select: { status: true, projectId: true },
+    });
+    if (fresh.status === "COMMITTED" && fresh.projectId) return fresh.projectId;
+
     const project = await tx.project.create({
       data: {
         name: intake.title,

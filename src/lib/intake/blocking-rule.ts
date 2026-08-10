@@ -36,6 +36,10 @@ export function canCommit(parties: PartyState[], gaps: GapState[]): CommitVerdic
     reasons.push("Καμία δική μας εταιρία δεν εντοπίστηκε στη σύμβαση.");
   }
 
+  if (parties.length > 0 && parties.every((p) => p.side !== "EXTERNAL")) {
+    reasons.push("Δεν εντοπίστηκε αντισυμβαλλόμενος — χωρίς τρίτο μέρος δεν προκύπτει σύμβαση επεξεργασίας.");
+  }
+
   if (parties.filter((p) => p.side === "OWN_MOTHER").length > 1) {
     reasons.push("Περισσότερα από ένα μέρη σημειώθηκαν ως η μαμά εταιρία.");
   }
