@@ -124,7 +124,7 @@ export function buildArticle28Clauses(input: ClauseInput, startAt = 1): Clause[]
 
   if (input.crossBorderTransfer) {
     clauses.push({
-      title: "Διαβιβάσεις (μεταφορές δεδομένων) εκτός ΕΟΧ",
+      title: "Διαβιβάσεις εκτός ΕΟΧ",
       body:
         `Τυχόν διαβίβαση δεδομένων εκτός Ευρωπαϊκού Οικονομικού Χώρου γίνεται μόνο κατόπιν εντολής του ` +
         `«${C}» και εφόσον υφίσταται νόμιμη βάση του κεφαλαίου V GDPR — απόφαση επάρκειας ή τυποποιημένες ` +

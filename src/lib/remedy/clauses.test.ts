@@ -43,8 +43,9 @@ describe("buildArticle28Clauses", () => {
   it("προσθέτει ρήτρα διασυνοριακής μεταφοράς μόνο όταν υπάρχει", () => {
     const without = buildArticle28Clauses(input).map((c) => c.title).join("|");
     const with_ = buildArticle28Clauses({ ...input, crossBorderTransfer: true }).map((c) => c.title).join("|");
-    expect(without).not.toMatch(/μεταφορ/i);
-    expect(with_).toMatch(/μεταφορ/i);
+    // «Διαβίβαση», όχι «μεταφορά» — είναι ο όρος του Κεφαλαίου V του Κανονισμού.
+    expect(without).not.toMatch(/διαβιβ/i);
+    expect(with_).toMatch(/διαβιβ/i);
   });
 
   it("προσθέτει ρήτρα ειδικών κατηγοριών μόνο όταν υπάρχουν", () => {
