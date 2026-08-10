@@ -1,4 +1,4 @@
-import type { PartyRoleValue } from "./role-mapping";
+import { toDpaRole, type PartyRoleValue } from "./role-mapping";
 import type { PartySideValue } from "./company-match";
 
 export type GapSeverityValue = "CRITICAL" | "HIGH" | "MEDIUM" | "LOW";
@@ -46,6 +46,24 @@ export function canCommit(parties: PartyState[], gaps: GapState[]): CommitVerdic
 
   if (parties.some((p) => !p.confirmedRole)) {
     reasons.push("Κάθε μέρος πρέπει να έχει επιβεβαιωμένο ρόλο.");
+  }
+
+  // Οι ρόλοι πρέπει να ΣΥΝΔΥΑΖΟΝΤΑΙ, όχι απλώς να υπάρχουν. Ένα μοντέλο μπορεί
+  // να δώσει CONTROLLER και στις δύο πλευρές ενώ η αιτιολόγησή του περιγράφει
+  // σχέση εκτελούντος — παρατηρήθηκε σε πραγματική δοκιμή. Χωρίς έγκυρο ζεύγος
+  // δεν παράγεται καμία σύμβαση επεξεργασίας, και το commit θα δημιουργούσε
+  // σιωπηλά έργο χωρίς κανένα DpaContract.
+  const ourRoles = parties.filter((p) => p.side !== "EXTERNAL" && p.confirmedRole);
+  const theirRoles = parties.filter((p) => p.side === "EXTERNAL" && p.confirmedRole);
+  if (ourRoles.length > 0 && theirRoles.length > 0) {
+    const anyValidPair = ourRoles.some((o) =>
+      theirRoles.some((t) => toDpaRole(o.confirmedRole, t.confirmedRole) !== null)
+    );
+    if (!anyValidPair) {
+      reasons.push(
+        "Κανένας συνδυασμός ρόλων δεν αντιστοιχεί σε σύμβαση επεξεργασίας — έλεγξε τους ρόλους."
+      );
+    }
   }
 
   for (const gap of gaps) {

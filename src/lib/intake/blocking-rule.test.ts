@@ -96,6 +96,30 @@ describe("canCommit", () => {
     expect(r.reasons.join()).toMatch(/αντισυμβαλλόμεν/i);
   });
 
+  it("μπλοκάρει όταν οι ρόλοι δεν συνδυάζονται σε σύμβαση επεξεργασίας", () => {
+    // Παρατηρήθηκε σε πραγματική δοκιμή: το μοντέλο έδωσε CONTROLLER και στις
+    // δύο πλευρές ενώ η αιτιολόγησή του περιέγραφε σχέση εκτελούντος.
+    const r = canCommit(
+      [
+        { side: "OWN_MOTHER", confirmedRole: "CONTROLLER" },
+        { side: "EXTERNAL", confirmedRole: "CONTROLLER" },
+      ],
+      []
+    );
+    expect(r.allowed).toBe(false);
+    expect(r.reasons.join()).toMatch(/συνδυασμ/i);
+  });
+
+  it.each([
+    ["CONTROLLER", "PROCESSOR"],
+    ["PROCESSOR", "CONTROLLER"],
+    ["JOINT_CONTROLLER", "JOINT_CONTROLLER"],
+  ] as const)("επιτρέπει το έγκυρο ζεύγος (%s, %s)", (ours, theirs) => {
+    expect(
+      canCommit([{ side: "OWN_MOTHER", confirmedRole: ours }, { side: "EXTERNAL", confirmedRole: theirs }], []).allowed
+    ).toBe(true);
+  });
+
   it("συγκεντρώνει όλους τους λόγους, δεν σταματά στον πρώτο", () => {
     const r = canCommit([{ side: "EXTERNAL", confirmedRole: null }], [gap({ status: "OPEN" })]);
     expect(r.reasons.length).toBeGreaterThanOrEqual(3);
