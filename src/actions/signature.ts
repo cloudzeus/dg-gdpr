@@ -268,7 +268,7 @@ export async function completeProject(projectId: string): Promise<void> {
     }),
     prisma.complianceIntake.findMany({
       where: { projectId },
-      select: { gaps: { select: { severity: true, status: true, dismissReason: true } } },
+      select: { gaps: { select: { severity: true, status: true, dismissReason: true, title: true } } },
     }),
   ]);
 

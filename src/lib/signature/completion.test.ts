@@ -2,7 +2,12 @@ import { describe, it, expect } from "vitest";
 import { canCompleteProject, latestPerDocument, type SignatureState, type GapState, type DocumentSignature } from "./completion";
 
 const signed: SignatureState = { status: "SIGNED", recipientName: "Α", declineReason: null };
-const critical = (status: string): GapState => ({ severity: "CRITICAL", status, dismissReason: null });
+const critical = (status: string, title = "Απουσία DPA"): GapState => ({
+  severity: "CRITICAL",
+  status,
+  dismissReason: null,
+  title,
+});
 
 describe("canCompleteProject", () => {
   it("επιτρέπει όταν όλα υπογράφηκαν και τα κρίσιμα λύθηκαν", () => {
@@ -40,19 +45,36 @@ describe("canCompleteProject", () => {
   });
 
   it("το DISMISSED με αιτιολογία περνά", () => {
-    const gap: GapState = { severity: "CRITICAL", status: "DISMISSED", dismissReason: "Καλύπτεται αλλού" };
+    const gap: GapState = { ...critical("DISMISSED"), dismissReason: "Καλύπτεται αλλού" };
     expect(canCompleteProject([], [gap]).allowed).toBe(true);
   });
 
   it("το DISMISSED χωρίς αιτιολογία δεν περνά", () => {
-    const gap: GapState = { severity: "CRITICAL", status: "DISMISSED", dismissReason: "  " };
+    const gap: GapState = { ...critical("DISMISSED"), dismissReason: "  " };
     expect(canCompleteProject([], [gap]).allowed).toBe(false);
   });
 
   it("τα μη κρίσιμα κενά δεν εμποδίζουν το κλείσιμο", () => {
     for (const severity of ["HIGH", "MEDIUM", "LOW"]) {
-      expect(canCompleteProject([], [{ severity, status: "OPEN", dismissReason: null }]).allowed).toBe(true);
+      expect(
+        canCompleteProject([], [{ severity, status: "OPEN", dismissReason: null, title: "Κάτι" }]).allowed
+      ).toBe(true);
     }
+  });
+
+  it("δύο κρίσιμα κενά δίνουν δύο ΔΙΑΦΟΡΕΤΙΚΟΥΣ λόγους, με το όνομα του καθενός", () => {
+    // Χωρίς τον τίτλο, ο χρήστης έβλεπε την ίδια πρόταση δύο φορές και δεν
+    // μπορούσε να ξέρει ποιο κενό να πάει να κλείσει.
+    const r = canCompleteProject([], [critical("OPEN", "Απουσία DPA"), critical("DRAFTED", "Υποεκτελούντες")]);
+    expect(r.reasons).toHaveLength(2);
+    expect(new Set(r.reasons).size).toBe(2);
+    expect(r.reasons.join()).toContain("Απουσία DPA");
+    expect(r.reasons.join()).toContain("Υποεκτελούντες");
+  });
+
+  it("ο λόγος εκκρεμούς υπογραφής λέει ποιανού είναι", () => {
+    const r = canCompleteProject([{ ...signed, status: "SENT", recipientName: "Κολλέρης" }], []);
+    expect(r.reasons.join()).toContain("Κολλέρης");
   });
 
   it("συγκεντρώνει όλους τους λόγους", () => {

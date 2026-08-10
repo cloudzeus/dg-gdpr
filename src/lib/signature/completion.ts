@@ -12,6 +12,8 @@ export interface GapState {
   severity: string;
   status: string;
   dismissReason: string | null;
+  /** Ποιο κενό — χωρίς αυτό δύο κρίσιμα κενά δίνουν δύο πανομοιότυπες γραμμές. */
+  title: string;
 }
 
 export interface CompletionVerdict {
@@ -40,7 +42,7 @@ export function canCompleteProject(signatures: SignatureState[], gaps: GapState[
       continue;
     }
     reasons.push(
-      `Υπάρχει εκκρεμής υπογραφή (κατάσταση: ${sig.status}) — το έργο δεν κλείνει όσο εκκρεμεί υπογραφή.`
+      `Εκκρεμεί η υπογραφή του/της «${sig.recipientName}» (κατάσταση: ${sig.status}).`
     );
   }
 
@@ -49,7 +51,8 @@ export function canCompleteProject(signatures: SignatureState[], gaps: GapState[
     if (gap.status === "RESOLVED") continue;
     if (gap.status === "DISMISSED" && gap.dismissReason?.trim()) continue;
     reasons.push(
-      "Υπάρχει κρίσιμο κενό που δεν έχει επιλυθεί πλήρως — στο κλείσιμο του έργου δεν αρκεί το πρόχειρο."
+      `Κρίσιμο κενό χωρίς πλήρη επίλυση: «${gap.title}» (κατάσταση: ${gap.status}) — ` +
+        "στο κλείσιμο του έργου δεν αρκεί το πρόχειρο."
     );
   }
 

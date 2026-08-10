@@ -53,7 +53,10 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
       <Topbar userName={session?.user?.name} userRole={(session?.user as any)?.role} pageTitle={`${project.name} — Privacy by Design`} />
       <main className="flex-1 overflow-y-auto p-6">
         <div className="flex gap-6">
-          <div className="flex-1 space-y-6">
+          {/* min-w-0: χωρίς αυτό το flex item παίρνει min-width:auto και ο
+              πίνακας υπογραφών το φουσκώνει, σπρώχνοντας έξω το πλαϊνό και
+              βάζοντας οριζόντια κύλιση σε ΟΛΗ τη σελίδα αντί μόνο στον πίνακα. */}
+          <div className="min-w-0 flex-1 space-y-6">
             {/* Project header */}
             <div className="flex items-center justify-between">
               <div>

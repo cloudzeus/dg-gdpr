@@ -40,7 +40,7 @@ export async function SignaturesPanel({ projectId }: { projectId: string }) {
     prisma.signatureRequest.findMany({ where: { projectId }, orderBy: { createdAt: "desc" } }),
     prisma.complianceIntake.findMany({
       where: { projectId },
-      select: { gaps: { select: { severity: true, status: true, dismissReason: true } } },
+      select: { gaps: { select: { severity: true, status: true, dismissReason: true, title: true } } },
     }),
   ]);
 
