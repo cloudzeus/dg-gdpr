@@ -9,7 +9,13 @@ import { getBaseUrlFromHeaders } from "@/lib/base-url";
 import { sendMail } from "@/lib/mail";
 import { generateConsentToken } from "@/lib/consent-token";
 import { resolveRecipient, signatureTestRecipient } from "@/lib/signature/recipient";
-import { canCompleteProject, type SignatureState, type GapState } from "@/lib/signature/completion";
+import {
+  canCompleteProject,
+  latestPerDocument,
+  type SignatureState,
+  type GapState,
+  type DocumentSignature,
+} from "@/lib/signature/completion";
 import { signatureRequestEmail } from "@/lib/signature/email";
 import { documentTitle } from "@/lib/signature/document";
 import type { SignatureRequest } from "@prisma/client";
@@ -220,14 +226,30 @@ export async function cancelSignatureRequest(requestId: string, reason: string):
   revalidatePath(`/dev/projects/${request.projectId}`);
 }
 
-function toSignatureState(r: Pick<SignatureRequest, "status" | "recipientName" | "declineReason">): SignatureState {
-  return { status: r.status, recipientName: r.recipientName, declineReason: r.declineReason };
+type CompletionSignatureRow = Pick<
+  SignatureRequest,
+  "status" | "recipientName" | "declineReason" | "entityType" | "entityId" | "createdAt"
+>;
+
+function toSignatureState(r: CompletionSignatureRow): SignatureState & DocumentSignature {
+  return {
+    status: r.status,
+    recipientName: r.recipientName,
+    declineReason: r.declineReason,
+    entityType: r.entityType,
+    entityId: r.entityId,
+    createdAt: r.createdAt,
+  };
 }
 
 /**
  * Κλείνει το έργο μόνο όταν το επιτρέπει το `canCompleteProject` — κάθε
  * υπογραφή `SIGNED` και κάθε κρίσιμο κενό `RESOLVED` (ή `DISMISSED` με
  * αιτιολογία). Αρνείται με τους ίδιους λόγους που θα δει το UI.
+ *
+ * `latestPerDocument` πρώτα, γιατί το `createSignatureRequests` επιτρέπει
+ * νέο αίτημα για ένα έγγραφο μόλις το προηγούμενο λήξει — χωρίς αυτό, ένα
+ * παλιό EXPIRED θα μπλόκαρε το έργο ακόμα κι όταν το νέο αίτημα υπογράφηκε.
  */
 export async function completeProject(projectId: string): Promise<void> {
   await requireUserId();
@@ -235,7 +257,14 @@ export async function completeProject(projectId: string): Promise<void> {
   const [signatures, intakes] = await Promise.all([
     prisma.signatureRequest.findMany({
       where: { projectId },
-      select: { status: true, recipientName: true, declineReason: true },
+      select: {
+        status: true,
+        recipientName: true,
+        declineReason: true,
+        entityType: true,
+        entityId: true,
+        createdAt: true,
+      },
     }),
     prisma.complianceIntake.findMany({
       where: { projectId },
@@ -243,7 +272,7 @@ export async function completeProject(projectId: string): Promise<void> {
     }),
   ]);
 
-  const signatureStates: SignatureState[] = signatures.map(toSignatureState);
+  const signatureStates: SignatureState[] = latestPerDocument(signatures.map(toSignatureState));
   const gapStates: GapState[] = intakes.flatMap((intake) => intake.gaps);
 
   const verdict = canCompleteProject(signatureStates, gapStates);

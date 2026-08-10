@@ -4,7 +4,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatDateTime } from "@/lib/utils";
 import { createSignatureRequests } from "@/actions/signature";
-import { canCompleteProject, type SignatureState, type GapState } from "@/lib/signature/completion";
+import {
+  canCompleteProject,
+  latestPerDocument,
+  type SignatureState,
+  type GapState,
+  type DocumentSignature,
+} from "@/lib/signature/completion";
 import { signatureTestRecipient } from "@/lib/signature/recipient";
 import { SignatureRowActions } from "./signature-actions";
 import { CompleteProjectButton } from "./complete-project-button";
@@ -48,11 +54,19 @@ export async function SignaturesPanel({ projectId }: { projectId: string }) {
   const titleFor = (r: (typeof requests)[number]) =>
     r.entityType === "DpaContract" ? (titleById.get(r.entityId) ?? "Έγγραφο") : "Έγγραφο";
 
-  const signatureStates: SignatureState[] = requests.map((r) => ({
-    status: r.status,
-    recipientName: r.recipientName,
-    declineReason: r.declineReason,
-  }));
+  // Ίδια λογική με το completeProject: μόνο το πιο πρόσφατο αίτημα ανά
+  // έγγραφο μετράει — αλλιώς ένα ληγμένο που αντικαταστάθηκε θα έδειχνε το
+  // κλείσιμο μπλοκαρισμένο ενώ το τρέχον αίτημα έχει ήδη υπογραφεί.
+  const signatureStates: (SignatureState & DocumentSignature)[] = latestPerDocument(
+    requests.map((r) => ({
+      status: r.status,
+      recipientName: r.recipientName,
+      declineReason: r.declineReason,
+      entityType: r.entityType,
+      entityId: r.entityId,
+      createdAt: r.createdAt,
+    }))
+  );
   const gapStates: GapState[] = intakes.flatMap((intake) => intake.gaps);
   const verdict = canCompleteProject(signatureStates, gapStates);
 

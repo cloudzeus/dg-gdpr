@@ -55,3 +55,31 @@ export function canCompleteProject(signatures: SignatureState[], gaps: GapState[
 
   return { allowed: reasons.length === 0, reasons };
 }
+
+export interface DocumentSignature {
+  entityType: string;
+  entityId: string;
+  createdAt: Date;
+}
+
+/**
+ * Κρατά μόνο το πιο πρόσφατο `SignatureRequest` ανά έγγραφο (`entityType` +
+ * `entityId`).
+ *
+ * Το `createSignatureRequests` επιτρέπει νέο αίτημα για ένα έγγραφο μόλις το
+ * προηγούμενο λήξει ή ακυρωθεί — μόνο αίτημα σε εκκρεμότητα (PENDING/SENT/
+ * VIEWED) εμποδίζει δεύτερο. Αν το `canCompleteProject` έβλεπε ΚΑΘΕ ιστορική
+ * εγγραφή, ένα ληγμένο αίτημα που αντικαταστάθηκε και υπογράφηκε θα
+ * μπλόκαρε το κλείσιμο του έργου για πάντα. Ο καλών περνά εδώ πρώτα.
+ */
+export function latestPerDocument<T extends DocumentSignature>(requests: T[]): T[] {
+  const latest = new Map<string, T>();
+  for (const r of requests) {
+    const key = `${r.entityType}:${r.entityId}`;
+    const existing = latest.get(key);
+    if (!existing || r.createdAt.getTime() > existing.createdAt.getTime()) {
+      latest.set(key, r);
+    }
+  }
+  return [...latest.values()];
+}
