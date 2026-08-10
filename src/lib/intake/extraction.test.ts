@@ -1,6 +1,7 @@
 // src/lib/intake/extraction.test.ts
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { extractContract } from "./extraction";
+import type { GeminiPart } from "@/lib/gemini";
 
 const VALID = JSON.stringify({
   parties: [
@@ -43,8 +44,8 @@ describe("extractContract", () => {
     await extractContract(docs, { generate });
 
     const parts = generate.mock.calls[0][0].parts;
-    expect(parts.some((p: any) => p.text?.includes("ΣΥΜΒΑΣΗ"))).toBe(true);
-    expect(parts.some((p: any) => p.inlineData?.mimeType === "application/pdf")).toBe(true);
+    expect(parts.some((p: GeminiPart) => p.text?.includes("ΣΥΜΒΑΣΗ"))).toBe(true);
+    expect(parts.some((p: GeminiPart) => p.inlineData?.mimeType === "application/pdf")).toBe(true);
   });
 
   it("ξεπερνά τα code fences", async () => {

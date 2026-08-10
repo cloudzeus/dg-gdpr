@@ -94,7 +94,8 @@ describe("ReasoningSchema", () => {
   });
 
   it("το remedyType επιτρέπεται να λείπει", () => {
-    const { remedyType: _omit, ...noRemedy } = valid.gaps[0];
+    const noRemedy = { ...valid.gaps[0] };
+    delete (noRemedy as Partial<typeof noRemedy>).remedyType;
     expect(ReasoningSchema.parse({ ...valid, gaps: [noRemedy] }).gaps[0].remedyType).toBeNull();
   });
 });

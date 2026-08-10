@@ -1,6 +1,7 @@
 // src/lib/intake/ocr.test.ts
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { readDocument, estimatePageCount } from "./ocr";
+import type { GeminiPart } from "@/lib/gemini";
 
 const GOOD_TEXT = `
 ΣΥΜΒΑΣΗ ΠΑΡΟΧΗΣ ΥΠΗΡΕΣΙΩΝ. Στην Αθήνα σήμερα, ΜΕΤΑΞΥ της DGSOFT ΕΕ με
@@ -68,7 +69,7 @@ describe("readDocument", () => {
     const generate = vi.fn().mockResolvedValue(GOOD_TEXT);
     await readDocument(pdf, { generate });
 
-    const part = generate.mock.calls[0][0].parts.find((p: any) => p.inlineData);
+    const part = generate.mock.calls[0][0].parts.find((p: GeminiPart) => p.inlineData);
     expect(part.inlineData.mimeType).toBe("application/pdf");
     expect(part.inlineData.data).toBe(Buffer.from("fake").toString("base64"));
   });
