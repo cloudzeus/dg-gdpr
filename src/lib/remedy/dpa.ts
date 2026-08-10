@@ -9,7 +9,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { uploadToBunny } from "@/lib/bunny";
 import { buildDpaWord } from "@/lib/export-dpa-word";
-import { toDpaRole, type DpaRoleValue } from "@/lib/intake/role-mapping";
+import { toDpaRole, type PartyRoleValue, type DpaRoleValue } from "@/lib/intake/role-mapping";
 import { buildArticle28Clauses, type Clause, type ClauseInput } from "./clauses";
 import type { ContextParty, Remedy, RemedyContext } from "./types";
 
@@ -78,14 +78,32 @@ function resolvePair(ctx: RemedyContext): PairResolution {
     };
   }
 
-  // Στην JOINT_CONTROLLERS δεν υπάρχει πραγματικός Controller/Processor· τα
-  // πεδία επαναχρησιμοποιούνται (ours στη θέση «controller») απλώς για να
-  // γεμίσουν τη σταθερή μορφή του DpaContract.
-  const weAreController = dpaRole !== "COMPANY_AS_PROCESSOR";
-  const controllerParty = weAreController ? ours : theirs;
-  const processorParty = weAreController ? theirs : ours;
+  // Ποιος είναι Υπεύθυνος προκύπτει ΑΠΕΥΘΕΙΑΣ από τον επιβεβαιωμένο ρόλο, όχι
+  // από παραγωγή μέσω του DpaRole. Το DpaRole περιγράφει τη σχέση από τη
+  // σκοπιά του τρίτου («COMPANY_AS_...»), και η αντιστροφή του ήταν εύκολη —
+  // παρήγαγε DPA που ονόμαζε Υπεύθυνο τον Εκτελούντα.
+  // Στην JOINT_CONTROLLERS δεν υπάρχει Εκτελών· τα πεδία απλώς γεμίζουν τη
+  // σταθερή μορφή του DpaContract.
+  const { controllerParty, processorParty } = assignSides(ours, theirs);
 
   return { ok: true, pair: { ours, theirs, dpaRole, controllerParty, processorParty } };
+}
+
+/**
+ * Ποιος μπαίνει στη θέση του Υπευθύνου και ποιος του Εκτελούντος.
+ *
+ * Καθαρή και εξαγόμενη επίτηδες: η προηγούμενη εκδοχή την παρήγαγε από το
+ * `DpaRole` με άρνηση και ήταν αντεστραμμένη — το παραγόμενο DPA ονόμαζε
+ * Υπεύθυνο Επεξεργασίας τον Εκτελούντα, που είναι ό,τι χειρότερο μπορεί να
+ * γράψει μια σύμβαση άρθρου 28.
+ */
+export function assignSides<T extends { role: PartyRoleValue | null }>(
+  ours: T,
+  theirs: T
+): { controllerParty: T; processorParty: T } {
+  return ours.role === "CONTROLLER"
+    ? { controllerParty: ours, processorParty: theirs }
+    : { controllerParty: theirs, processorParty: ours };
 }
 
 function clausesInputFor(ctx: RemedyContext, pair: ResolvedPair): ClauseInput {
