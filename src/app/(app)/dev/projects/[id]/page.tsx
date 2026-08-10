@@ -11,6 +11,7 @@ import { LegalSidebar } from "@/components/shared/legal-sidebar";
 import { saveChecklist } from "@/actions/dev";
 import { riskLevelLabel, scoreToGrade } from "@/lib/utils";
 import { ShieldCheck } from "lucide-react";
+import { SignaturesPanel } from "./signatures";
 
 interface CheckItem { name: string; label: string; article: string }
 
@@ -120,6 +121,8 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
                 </form>
               </CardContent>
             </Card>
+
+            <SignaturesPanel projectId={id} />
           </div>
 
           <LegalSidebar
