@@ -207,6 +207,7 @@ export async function persistReasoning(intakeId: string, reasoning: Reasoning) {
           title: g.title,
           description: g.description,
           remedyType: g.remedyType as never,
+          policyType: g.policyType as never,
           gdprArticles: g.gdprArticles as never,
         },
       });

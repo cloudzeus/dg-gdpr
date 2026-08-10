@@ -27,6 +27,15 @@ export const GapCategoryEnum = z.enum([
 
 export const GapSeverityEnum = z.enum(["CRITICAL", "HIGH", "MEDIUM", "LOW"]);
 
+/** Οι τύποι πολιτικής του PolicyType — ώστε το κενό να λέει ΠΟΙΑ λείπει, μηχαναγνώσιμα. */
+export const PolicyTypeEnum = z.enum([
+  "SECURITY_POLICY", "ACCEPTABLE_USE", "DATA_RETENTION", "INCIDENT_RESPONSE",
+  "BYOD", "PASSWORD_POLICY", "BACKUP", "ACCESS_CONTROL", "PRIVACY_NOTICE",
+  "COOKIE_POLICY", "DATA_BREACH", "EMPLOYEE_HANDBOOK", "ETHICS_CODE",
+  "CLEAR_DESK", "REMOTE_WORK", "VENDOR_MANAGEMENT", "CHANGE_MANAGEMENT",
+  "BUSINESS_CONTINUITY", "OTHER",
+]);
+
 export const RemedyTypeEnum = z.enum([
   "CREATE_POLICY", "CREATE_DPIA", "CREATE_DPA", "CREATE_JCA",
   "CREATE_ROPA_ENTRY", "CREATE_ASSESSMENT", "ASSIGN_DPO", "CREATE_TRAINING",
@@ -84,6 +93,8 @@ export const ReasoningSchema = z.object({
         title: nonEmpty,
         description: nonEmpty,
         remedyType: RemedyTypeEnum.nullish().transform((v) => v ?? null),
+        /** Υποχρεωτικό όταν remedyType = CREATE_POLICY· αλλιώς ο εκτελεστής δεν ξέρει τι να φτιάξει. */
+        policyType: PolicyTypeEnum.nullish().transform((v) => v ?? null),
         gdprArticles: z.array(z.string()).default([]),
       })
     )

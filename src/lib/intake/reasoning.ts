@@ -18,7 +18,7 @@ const SYSTEM = `Είσαι νομικός σύμβουλος GDPR για ελλ�
 Δομή:
 {
   "partyRoles": [{ "name": "<ακριβώς όπως δόθηκε>", "role": "CONTROLLER|PROCESSOR|JOINT_CONTROLLER|SUB_PROCESSOR|RECIPIENT|THIRD_PARTY", "rationale": "μία-δύο προτάσεις", "gdprArticles": ["28"] }],
-  "gaps": [{ "category": "POLICY|DPIA|ROPA|TRAINING|TECHNICAL|CONTRACT|DPO", "severity": "CRITICAL|HIGH|MEDIUM|LOW", "title": "...", "description": "...", "remedyType": "CREATE_POLICY|CREATE_DPIA|CREATE_DPA|CREATE_JCA|CREATE_ROPA_ENTRY|CREATE_ASSESSMENT|ASSIGN_DPO|CREATE_TRAINING", "gdprArticles": ["..."] }]
+  "gaps": [{ "category": "POLICY|DPIA|ROPA|TRAINING|TECHNICAL|CONTRACT|DPO", "severity": "CRITICAL|HIGH|MEDIUM|LOW", "title": "...", "description": "...", "remedyType": "CREATE_POLICY|CREATE_CONTRACT_CLAUSES|CREATE_DPIA|CREATE_DPA|CREATE_JCA|CREATE_ROPA_ENTRY|CREATE_ASSESSMENT|ASSIGN_DPO|CREATE_TRAINING", "policyType": "ACCESS_CONTROL|DATA_BREACH|SECURITY_POLICY|DATA_RETENTION|INCIDENT_RESPONSE|PRIVACY_NOTICE|VENDOR_MANAGEMENT|BACKUP|PASSWORD_POLICY|BUSINESS_CONTINUITY|OTHER", "gdprArticles": ["..."] }]
 }
 
 Κανόνες:
@@ -34,6 +34,8 @@ const SYSTEM = `Είσαι νομικός σύμβουλος GDPR για ελλ�
 - Τα κενά αφορούν ΤΗ ΔΙΚΗ ΜΑΣ πλευρά, με βάση το προφίλ συμμόρφωσης — όχι γενικές συμβουλές.
 - CRITICAL μόνο όταν η έλλειψη συνιστά παράβαση, π.χ. απουσία DPA όπου απαιτείται άρθρο 28,
   ή απουσία DPIA όπου απαιτείται άρθρο 35.
+- Όταν το remedyType είναι CREATE_POLICY, το "policyType" είναι ΥΠΟΧΡΕΩΤΙΚΟ και δηλώνει
+  ποια ακριβώς πολιτική λείπει. Χωρίς αυτό δεν μπορεί να δημιουργηθεί τίποτα.
 - Μην προτείνεις κενό που ήδη καλύπτεται από το προφίλ.`;
 
 export interface ConfirmedParty {
