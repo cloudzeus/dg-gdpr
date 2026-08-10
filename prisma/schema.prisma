@@ -254,8 +254,9 @@ model Company {
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
-  dpaContracts  DpaContract[]
-  intakeParties IntakeParty[]
+  dpaContracts      DpaContract[]
+  intakeParties     IntakeParty[]
+  signatureRequests SignatureRequest[]
 
   @@index([name])
 }
@@ -293,6 +294,7 @@ model Project {
   auditLogs         AuditLog[]
   assessments       Assessment[]
   complianceIntakes ComplianceIntake[]
+  signatureRequests SignatureRequest[]
 }
 
 enum ProjectStatus {
@@ -1165,4 +1167,59 @@ model IntakeGap {
   updatedAt DateTime @updatedAt
 
   intake ComplianceIntake @relation(fields: [intakeId], references: [id], onDelete: Cascade)
+}
+
+// ─── Signature Workflow (Wizard Στάδιο 3) ────────────────────────────────────
+
+model SignatureRequest {
+  id            String            @id @default(cuid())
+  projectId     String
+  /// Τι υπογράφεται. Πολυμορφικό: DpaContract, DpiaReport, ContractClauses.
+  entityType    String
+  entityId      String
+  documentUrl   String
+
+  /// Ποιος υπογράφει.
+  recipientName  String
+  recipientEmail String
+  companyId      String?
+
+  token         String            @unique
+  status        SignatureStatus   @default(PENDING)
+  expiresAt     DateTime
+
+  sentAt        DateTime?
+  viewedAt      DateTime?
+  signedAt      DateTime?
+  declinedAt    DateTime?
+  declineReason String?           @db.Text
+
+  /// Τι δήλωσε ο υπογράφων — το βάρος της απλής ηλεκτρονικής υπογραφής.
+  signerName    String?
+  signerTitle   String?
+  signerIp      String?
+  signerAgent   String?           @db.Text
+  /// Το ανεβασμένο υπογεγραμμένο, όταν επιλεγεί αυτός ο δρόμος.
+  uploadedUrl   String?
+
+  reminderCount Int               @default(0)
+  lastReminder  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  company Company? @relation(fields: [companyId], references: [id])
+
+  @@index([projectId])
+  @@index([status, expiresAt])
+}
+
+enum SignatureStatus {
+  PENDING
+  SENT
+  VIEWED
+  SIGNED
+  DECLINED
+  EXPIRED
 }
