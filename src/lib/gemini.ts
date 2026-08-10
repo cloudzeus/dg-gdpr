@@ -32,9 +32,16 @@ export interface GeminiOptions {
   json?: boolean;
 }
 
-/** Το μοντέλο για OCR ανά σελίδα — φθηνό και γρήγορο. */
+/**
+ * Το μοντέλο για OCR ανά σελίδα — φθηνό και γρήγορο.
+ *
+ * Η προεπιλογή είναι μετρημένη, όχι υποθετική: σε υποβαθμισμένη φωτογραφία
+ * ελληνικής σύμβασης (στραβή, 850px, JPEG q28) το gemini-2.5-flash-lite
+ * παρέλειψε σιωπηλά την επωνυμία «DGSOFT» και τη ΔΟΥ, ενώ το 3.5-flash-lite
+ * τα διάβασε σωστά. Και τα δύο πέρασαν καθαρό render.
+ */
 export function liteModel(): string {
-  return process.env.GEMINI_MODEL_LITE ?? "gemini-2.5-flash-lite";
+  return process.env.GEMINI_MODEL_LITE ?? "gemini-3.5-flash-lite";
 }
 
 /** Το μοντέλο για κλιμάκωση και δομημένη εξαγωγή. */

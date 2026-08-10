@@ -1681,7 +1681,7 @@ export interface GeminiOptions {
 
 /** Το μοντέλο για OCR ανά σελίδα — φθηνό και γρήγορο. */
 export function liteModel(): string {
-  return process.env.GEMINI_MODEL_LITE ?? "gemini-2.5-flash-lite";
+  return process.env.GEMINI_MODEL_LITE ?? "gemini-3.5-flash-lite";
 }
 
 /** Το μοντέλο για κλιμάκωση και δομημένη εξαγωγή. */
@@ -1744,7 +1744,7 @@ Expected: PASS — 10 tests
 ```
 # Gemini — OCR και δομημένη εξαγωγή για τον wizard πρόσληψης
 GEMINI_API_KEY=
-GEMINI_MODEL_LITE=gemini-2.5-flash-lite
+GEMINI_MODEL_LITE=gemini-3.5-flash-lite
 GEMINI_MODEL_PRO=gemini-2.5-pro
 INTAKE_OCR_QUALITY_THRESHOLD=0.7
 INTAKE_MAX_PRO_ESCALATIONS=5
